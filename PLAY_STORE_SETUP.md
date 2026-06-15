@@ -92,12 +92,26 @@ keytool -list -v -keystore keystore/tapcard-release.jks -alias tapcard | grep -E
 
 ## 5. Create a release  **[YOU]**
 
-1. **Release → Testing → Internal testing** (fastest; recommended first).
-   - Upload `app-release.aab`.
-   - Add your own Google account as a tester, save, roll out.
-   - Install via the opt-in link on your phone and verify.
-2. When happy: **Release → Production → Create new release**, upload the same AAB (or a new
-   versionCode), complete the release notes, and **Send for review**.
+### Closed testing (the chosen track — "All testers" for review)
+
+1. **Test and release → Testing → Closed testing**.
+2. On the default **Alpha** track (or **Create track**), click **Create new release**.
+3. **App bundles:** upload `app/build/outputs/bundle/release/app-release.aab`.
+   Accept **Play App Signing** when prompted.
+4. **Release name:** `1.0 (1)`. **Release notes:** e.g.
+   `First closed-testing build of Tapcard — scan business cards and share digital cards via QR.`
+5. **Testers:** open the **Testers** tab for the track → add an email list (a Google Group or a
+   list that includes **all your testers**), so every tester can access the build. Save.
+6. Click **Next → Save → Review release → Start rollout to Closed testing**, then **Send for review**.
+7. Share the **opt-in URL** (Testers tab) with your testers so they can install once approved.
+
+> Internal testing is even faster (no review wait) if you just want to smoke-test first; the steps
+> are identical under **Testing → Internal testing**.
+
+### Production (later)
+
+When happy: **Production → Create new release**, upload the same AAB (or a new versionCode),
+complete the release notes, and **Send for review**.
 
 > **Play App Signing:** accept it when prompted (default). Google holds the *app signing key*; your
 > `.jks` is only the *upload key*.
