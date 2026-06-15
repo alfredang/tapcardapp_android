@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+  *{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  html,body{width:1024px;height:500px;overflow:hidden}
+  .wrap{width:1024px;height:500px;background:linear-gradient(120deg,#1E40AF,#2563EB 55%,#3B82F6);
+        display:flex;align-items:center;padding:0 64px;gap:48px}
+  .left{flex:1;color:#fff}
+  .title{font-size:62px;font-weight:800;letter-spacing:-1px}
+  .tag{font-size:27px;font-weight:600;margin-top:14px;color:#dbe7ff}
+  .sub{font-size:19px;margin-top:18px;color:#c3d4fb;line-height:1.5;max-width:460px}
+  .right{width:300px;display:flex;align-items:center;justify-content:center}
+  .card{width:280px;height:175px;background:#fff;border-radius:20px;
+        box-shadow:0 22px 50px rgba(0,0,0,.35);display:flex;padding:24px;gap:16px}
+  .lines{flex:1;display:flex;flex-direction:column;justify-content:center;gap:11px}
+  .l{height:13px;border-radius:7px}
+  .l1{width:80%;background:#2563EB}.l2{width:62%;background:#93B4FB}.l3{width:50%;background:#cbd9fb}
+  .qr{width:88px;height:88px;align-self:center;display:grid;
+      grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);gap:4px}
+  .qr span{background:#1E40AF;border-radius:3px}.qr .o{background:transparent}
+</style></head><body>
+  <div class="wrap">
+    <div class="left">
+      <div class="title">Tapcard</div>
+      <div class="tag">Your digital business card</div>
+      <div class="sub">Scan paper cards on-device, then share yours with a QR code. No account, no cloud — everything stays on your phone.</div>
+    </div>
+    <div class="right">
+      <div class="card">
+        <div class="lines"><div class="l l1"></div><div class="l l2"></div><div class="l l3"></div></div>
+        <div class="qr">
+          <span></span><span></span><span class="o"></span><span></span><span></span>
+          <span></span><span class="o"></span><span class="o"></span><span></span><span class="o"></span>
+          <span class="o"></span><span></span><span></span><span class="o"></span><span></span>
+          <span></span><span class="o"></span><span></span><span></span><span></span>
+          <span></span><span></span><span class="o"></span><span class="o"></span><span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body></html>

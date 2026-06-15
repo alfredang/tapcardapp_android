@@ -1,0 +1,16 @@
+*.iml
+.gradle/
+/local.properties
+/.idea/
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+/app/build/
+# Secrets & signing — never commit
+/keystore/
+keystore.properties
+
+# Playwright MCP scratch
+.playwright-mcp/

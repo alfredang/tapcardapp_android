@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Generated QR images and exported vCards are written to cache/share/. -->
+    <cache-path name="share" path="share/" />
+</paths>

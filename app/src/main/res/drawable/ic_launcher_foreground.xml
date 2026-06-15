@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- A business card with a QR tap-target, centred in the adaptive-icon safe zone. -->
+    <group
+        android:translateX="0"
+        android:translateY="0">
+        <!-- Card body -->
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M30,38 L78,38 A4,4 0 0 1 82,42 L82,66 A4,4 0 0 1 78,70 L30,70 A4,4 0 0 1 26,66 L26,42 A4,4 0 0 1 30,38 Z" />
+        <!-- Contact text lines -->
+        <path
+            android:fillColor="#FF2563EB"
+            android:pathData="M33,45 L52,45 L52,48 L33,48 Z" />
+        <path
+            android:fillColor="#FF93B4FB"
+            android:pathData="M33,52 L49,52 L49,54.5 L33,54.5 Z" />
+        <path
+            android:fillColor="#FF93B4FB"
+            android:pathData="M33,58 L46,58 L46,60.5 L33,60.5 Z" />
+        <!-- Mini QR block -->
+        <path
+            android:fillColor="#FF2563EB"
+            android:pathData="M61,45 L75,45 L75,59 L61,59 Z M64,48 L67,48 L67,51 L64,51 Z M69,48 L72,48 L72,51 L69,51 Z M64,53 L67,53 L67,56 L64,56 Z M69,53 L72,53 L72,56 L69,56 Z" />
+    </group>
+</vector>
