@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Tapcard</string>
+    <string name="nfc_service_desc">Share your Tapcard by tapping phones</string>
 </resources>

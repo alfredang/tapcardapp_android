@@ -1,7 +1,9 @@
 package com.tertiaryinfotech.tapcard.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,18 +15,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,228 +36,252 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tertiaryinfotech.tapcard.model.DigitalCard
+import androidx.compose.ui.util.lerp
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
+import com.tertiaryinfotech.tapcard.ui.theme.BrandBlueDeep
+import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
 import com.tertiaryinfotech.tapcard.vm.CardViewModel
+import kotlin.math.absoluteValue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(vm: CardViewModel) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.CreditCard, contentDescription = null, tint = BrandBlue)
-                        Spacer(Modifier.size(8.dp))
-                        Text("Tapcard", fontWeight = FontWeight.Bold)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    titleContentColor = MaterialTheme.colorScheme.onSurface,
-                ),
-            )
-        },
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding),
-        ) {
-            ActionHeader(
-                onScan = vm::startScan,
-                onManual = vm::startManualEntry,
-            )
-
-            if (vm.cards.isEmpty()) {
-                EmptyState(Modifier.fillMaxSize())
-            } else {
-                Text(
-                    "MY CARDS",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 20.dp, top = 8.dp, bottom = 4.dp),
+    Box(Modifier.fillMaxSize()) {
+        AppBackground()
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Brush.linearGradient(listOf(BrandBlue, BrandBlueDeep))),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Filled.CreditCard,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                            Spacer(Modifier.size(10.dp))
+                            Text(
+                                "Tapcard",
+                                fontFamily = DisplayFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 22.sp,
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    ),
                 )
-                LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    items(vm.cards, key = { it.id }) { card ->
-                        CardRow(card, onClick = { vm.openCard(card) })
-                    }
-                }
+            },
+        ) { padding ->
+            if (vm.cards.isEmpty()) {
+                EmptyHome(padding, onScan = vm::startScan, onManual = vm::startManualEntry)
+            } else {
+                CardHero(vm, padding)
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ActionHeader(onScan: () -> Unit, onManual: () -> Unit) {
+private fun CardHero(vm: CardViewModel, padding: PaddingValues) {
+    val cards = vm.cards
+    val pagerState = rememberPagerState(pageCount = { cards.size })
+
+    // Entrance animation.
+    var appear by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appear = true }
+    val enter by animateFloatAsState(if (appear) 1f else 0f, tween(500), label = "enter")
+
     Column(
         Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .graphicsLayer {
+                alpha = enter
+                translationY = (1f - enter) * 40.dp.toPx()
+            }
+            .padding(vertical = 8.dp),
     ) {
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .background(
-                        Brush.linearGradient(listOf(BrandBlue, Color(0xFF1E40AF))),
-                    )
-                    .padding(20.dp),
-            ) {
-                Column {
-                    Text(
-                        "Your digital business card",
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Scan a paper card to capture the details, then share yours with a QR code.",
-                        color = Color.White.copy(alpha = 0.85f),
-                        fontSize = 13.sp,
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        HeaderButton(
-                            text = "Scan card",
-                            icon = Icons.Filled.PhotoCamera,
-                            container = Color.White,
-                            content = BrandBlue,
-                            modifier = Modifier.weight(1f),
-                            onClick = onScan,
-                        )
-                        HeaderButton(
-                            text = "Add manually",
-                            icon = Icons.Filled.Add,
-                            container = Color.White.copy(alpha = 0.18f),
-                            content = Color.White,
-                            modifier = Modifier.weight(1f),
-                            onClick = onManual,
-                        )
+        HorizontalPager(
+            state = pagerState,
+            pageSpacing = 16.dp,
+            contentPadding = PaddingValues(horizontal = 32.dp),
+        ) { page ->
+            val offset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
+            val t = 1f - offset.coerceIn(0f, 1f)
+            CardFace(
+                cards[page],
+                modifier = Modifier
+                    .graphicsLayer {
+                        val s = lerp(0.88f, 1f, t)
+                        scaleX = s
+                        scaleY = s
+                        alpha = lerp(0.55f, 1f, t)
                     }
+                    .tappable { vm.openCard(cards[page]) },
+            )
+        }
+
+        if (cards.size > 1) {
+            Spacer(Modifier.height(16.dp))
+            PageDots(count = cards.size, selected = pagerState.currentPage)
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        val current = cards[pagerState.currentPage.coerceIn(0, cards.lastIndex)]
+        Column(Modifier.padding(horizontal = Spacing.page)) {
+            PrimaryButton("Share card", icon = Icons.Filled.Share) { vm.openShare(current) }
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                SecondaryPill("View", Icons.Filled.Visibility, Modifier.weight(1f)) { vm.openCard(current) }
+                SecondaryPill("Edit", Icons.Filled.Edit, Modifier.weight(1f)) {
+                    vm.draft = current
+                    vm.editDraft()
                 }
             }
+
+            Spacer(Modifier.height(28.dp))
+            SectionLabel("Add another card")
+            Spacer(Modifier.height(8.dp))
+            ActionRow("Scan a card", Icons.Filled.PhotoCamera, subtitle = "Capture a paper card with your camera", onClick = vm::startScan)
+            Spacer(Modifier.height(10.dp))
+            ActionRow("Add manually", Icons.Filled.Add, subtitle = "Type in the details yourself", onClick = vm::startManualEntry)
+            Spacer(Modifier.height(12.dp))
         }
     }
 }
 
 @Composable
-private fun HeaderButton(
+private fun PageDots(count: Int, selected: Int) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        repeat(count) { i ->
+            val active = i == selected
+            val color by animateColorAsState(
+                if (active) BrandBlue else MaterialTheme.colorScheme.outline,
+                label = "dot",
+            )
+            Box(
+                Modifier
+                    .padding(horizontal = 3.dp)
+                    .size(width = if (active) 22.dp else 7.dp, height = 7.dp)
+                    .clip(CircleShape)
+                    .background(color),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SecondaryPill(
     text: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    container: Color,
-    content: Color,
+    icon: ImageVector,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Row(
         modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(container)
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .height(50.dp)
+            .clip(RoundedCornerShape(Radius.md))
+            .background(MaterialTheme.colorScheme.surface)
+            .tappable(onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.size(6.dp))
-        Text(text, color = content, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Icon(icon, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.size(7.dp))
+        Text(text, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
     }
 }
 
 @Composable
-private fun CardRow(card: DigitalCard, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        modifier = Modifier.fillMaxWidth(),
+private fun EmptyHome(
+    padding: PaddingValues,
+    onScan: () -> Unit,
+    onManual: () -> Unit,
+) {
+    var appear by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { appear = true }
+    val enter by animateFloatAsState(if (appear) 1f else 0f, tween(500), label = "enterEmpty")
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(horizontal = Spacing.page)
+            .graphicsLayer {
+                alpha = enter
+                translationY = (1f - enter) * 40.dp.toPx()
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(
-            Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Spacer(Modifier.height(64.dp))
+        Box(
+            Modifier
+                .size(104.dp)
+                .clip(RoundedCornerShape(30.dp))
+                .background(Brush.linearGradient(listOf(BrandBlue, BrandBlueDeep))),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                Modifier
-                    .size(46.dp)
-                    .clip(CircleShape)
-                    .background(Color(card.accentColor)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    card.displayName.take(1).uppercase(),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                )
-            }
-            Spacer(Modifier.size(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    card.displayName,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                if (card.subtitle.isNotBlank()) {
-                    Text(
-                        card.subtitle,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             Icon(
-                Icons.Filled.QrCode2,
+                Icons.Filled.CreditCard,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = Color.White,
+                modifier = Modifier.size(48.dp),
             )
         }
-    }
-}
-
-@Composable
-private fun EmptyState(modifier: Modifier = Modifier) {
-    Column(
-        modifier.padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(
-            Icons.Filled.Edit,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(48.dp),
-        )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(24.dp))
         Text(
-            "No cards yet",
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 18.sp,
+            "Create your first card",
+            fontFamily = DisplayFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 26.sp,
             color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(10.dp))
         Text(
-            "Scan a business card or add one by hand to create your first digital card.",
+            "Scan a paper business card or add one by hand, then share it instantly with a tap or a QR code.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 14.sp,
+            fontSize = 15.sp,
+            lineHeight = 22.sp,
+            textAlign = TextAlign.Center,
         )
+        Spacer(Modifier.height(32.dp))
+        PrimaryButton("Scan a card", icon = Icons.Filled.PhotoCamera, onClick = onScan)
+        Spacer(Modifier.height(12.dp))
+        OutlinedActionButton("Add manually", Icons.Filled.Add, onClick = onManual)
     }
 }

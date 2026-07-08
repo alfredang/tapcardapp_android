@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -95,9 +95,9 @@ fun ScanScreen(vm: CardViewModel) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = vm::goHome) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
             }
-            Text("Scan business card", color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text("Scan card or QR", color = Color.White, fontWeight = FontWeight.SemiBold)
         }
 
         if (vm.isScanning) {
@@ -166,7 +166,7 @@ private fun CameraCapture(onCaptured: (Uri) -> Unit, enabled: Boolean) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
-                "Align the card inside the frame",
+                "Align a business card or QR code in the frame",
                 color = Color.White,
                 fontSize = 13.sp,
             )

@@ -3,10 +3,15 @@ package com.tertiaryinfotech.tapcard.util
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
 import androidx.core.content.FileProvider
 import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
 import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.tertiaryinfotech.tapcard.model.DigitalCard
 import java.io.File
 import java.io.FileOutputStream
@@ -36,16 +41,53 @@ object VCard {
         append("END:VCARD")
     }
 
-    /** Generates a square QR [Bitmap] encoding the card's vCard. */
-    fun qrBitmap(card: DigitalCard, size: Int = 720): Bitmap {
-        val matrix = QRCodeWriter().encode(build(card), BarcodeFormat.QR_CODE, size, size)
+    /**
+     * Generates a square QR [Bitmap] encoding the card's vCard, with the Tapcard
+     * brand mark in the centre. Uses high error correction so the mark doesn't
+     * break scannability.
+     */
+    fun qrBitmap(card: DigitalCard, size: Int = 720, branded: Boolean = true): Bitmap {
+        val hints = mapOf(
+            EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
+            EncodeHintType.MARGIN to 1,
+        )
+        val matrix = QRCodeWriter().encode(build(card), BarcodeFormat.QR_CODE, size, size, hints)
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         for (x in 0 until size) {
             for (y in 0 until size) {
                 bmp.setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
             }
         }
+        if (branded) drawBrandMark(bmp, size)
         return bmp
+    }
+
+    /** Draws a small rounded Tapcard "card" badge in the centre of the QR. */
+    private fun drawBrandMark(bmp: Bitmap, size: Int) {
+        val canvas = Canvas(bmp)
+        val c = size / 2f
+        val badge = size * 0.22f
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        // White rounded backing so QR modules don't clash with the mark.
+        paint.color = Color.WHITE
+        val bg = badge
+        canvas.drawRoundRect(RectF(c - bg / 2, c - bg / 2, c + bg / 2, c + bg / 2), bg * 0.28f, bg * 0.28f, paint)
+
+        // Blue rounded "card".
+        paint.color = Color.parseColor("#2563EB")
+        val card = badge * 0.72f
+        val cardRect = RectF(c - card / 2, c - card / 2, c + card / 2, c + card / 2)
+        canvas.drawRoundRect(cardRect, card * 0.24f, card * 0.24f, paint)
+
+        // White stripe on the card (mimics the app's credit-card glyph).
+        paint.color = Color.WHITE
+        val stripeH = card * 0.14f
+        val stripeTop = c - card * 0.12f
+        canvas.drawRoundRect(
+            RectF(c - card * 0.30f, stripeTop, c + card * 0.30f, stripeTop + stripeH),
+            stripeH / 2, stripeH / 2, paint,
+        )
     }
 
     /** Writes the QR PNG to cache/share and returns a shareable content:// Uri. */

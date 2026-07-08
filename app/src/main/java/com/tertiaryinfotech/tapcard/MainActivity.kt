@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tertiaryinfotech.tapcard.ui.AuthScreen
+import com.tertiaryinfotech.tapcard.ui.OnboardingScreen
 import com.tertiaryinfotech.tapcard.ui.RootScreen
 import com.tertiaryinfotech.tapcard.ui.theme.TapcardTheme
 import com.tertiaryinfotech.tapcard.vm.CardViewModel
@@ -17,7 +19,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             TapcardTheme {
                 val vm: CardViewModel = viewModel()
-                RootScreen(vm)
+                when {
+                    vm.showOnboarding -> OnboardingScreen(vm)
+                    vm.showAuth -> AuthScreen(vm)
+                    else -> RootScreen(vm)
+                }
             }
         }
     }
