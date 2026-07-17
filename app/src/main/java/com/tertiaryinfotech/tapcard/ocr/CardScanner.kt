@@ -54,11 +54,19 @@ object CardScanner {
                 .addOnFailureListener { cont.resumeWithException(it) }
         }
 
-        // Prefer a code carrying structured contact info (vCard/MECARD QR).
+        return cardFromBarcodes(barcodes)
+    }
+
+    /**
+     * Maps already-detected barcodes to a card — shared by still-image capture and
+     * the live camera analyzer. Prefers structured contact info (vCard/MECARD QR),
+     * else accepts a profile / web link (LinkedIn, a Tapcard card URL, …).
+     * Returns null when there's no usable code.
+     */
+    fun cardFromBarcodes(barcodes: List<Barcode>): DigitalCard? {
         barcodes.firstNotNullOfOrNull { it.contactInfo?.takeIf(::hasContact)?.let(::fromContactInfo) }
             ?.let { return it }
 
-        // Otherwise accept a profile / web link (LinkedIn, a Tapcard card URL, …).
         val link = barcodes.firstNotNullOfOrNull { it.url?.url ?: it.rawValue }
             ?.takeIf { it.startsWith("http", ignoreCase = true) }
         return link?.let(::fromLink)
