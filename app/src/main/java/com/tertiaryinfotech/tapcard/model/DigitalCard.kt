@@ -4,20 +4,6 @@ import kotlinx.serialization.Serializable
 import java.util.UUID
 
 /**
- * A rich link on a card — payment, booking, product, file or a plain custom
- * link. [kind] drives the icon shown; [label] is what the user sees.
- */
-@Serializable
-data class CardLink(
-    val label: String = "",
-    val url: String = "",
-    val kind: String = "LINK", // LINK | PAYMENT | BOOKING | PRODUCT | FILE
-)
-
-/** The selectable link kinds offered in the editor. */
-val CardLinkKinds = listOf("LINK", "PAYMENT", "BOOKING", "PRODUCT", "FILE")
-
-/**
  * A digital business card. Fields mirror the web app's Card model so the two
  * stay in sync. Stored locally as JSON (see CardStore) and synced to the backend
  * when signed in.
@@ -56,15 +42,10 @@ data class DigitalCard(
     val profilePhoto: String = "",
     val companyLogo: String = "",
     val coverBanner: String = "",
-    val introVideo: String = "",
-    val gallery: List<String> = emptyList(),
-
-    // Rich links (payment / booking / product / file / custom)
-    val links: List<CardLink> = emptyList(),
 
     // Design
     val theme: String = "CORPORATE",
-    /** ARGB accent for the card face; defaults to the Tapcard brand blue. */
+    /** ARGB accent for the card face; defaults to the Corporate blue. */
     val accentColor: Long = 0xFF2563EB,
 
     /** Public web-card slug once synced to the backend (empty for local-only cards). */
@@ -94,4 +75,25 @@ data class DigitalCard(
             "Telegram" to telegram,
             "YouTube" to youtube,
         ).filter { it.second.isNotBlank() }
+
+    /**
+     * Converts a scanned person's card into a saveable [Contact]. The Contact model
+     * has no social fields, so website + socials fold into notes.
+     */
+    fun toContact(): Contact {
+        val extras = buildList {
+            if (website.isNotBlank()) add("Website: $website")
+            socialLinks.forEach { (label, url) -> add("$label: $url") }
+        }.joinToString("\n")
+        return Contact(
+            name = name,
+            company = company,
+            position = title,
+            email = email,
+            phone = phone,
+            whatsapp = whatsapp,
+            address = address,
+            notes = extras,
+        )
+    }
 }
