@@ -2,8 +2,10 @@ package com.tertiaryinfotech.tapcard.ui.theme
 
 import android.app.Activity
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -11,6 +13,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
@@ -45,6 +48,15 @@ private val DarkColors = darkColorScheme(
     outlineVariant = DarkOutline,
 )
 
+// Consistently rounded corners for Material components (text fields, dialogs, menus).
+private val AppShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(22.dp),
+    extraLarge = RoundedCornerShape(28.dp),
+)
+
 @Composable
 fun TapcardTheme(
     // Product decision: Tapcard is a light-themed app. We intentionally ignore
@@ -61,7 +73,7 @@ fun TapcardTheme(
             window.statusBarColor = colors.background.toArgb()
         }
     }
-    MaterialTheme(colorScheme = colors, typography = AppTypography) {
+    MaterialTheme(colorScheme = colors, typography = AppTypography, shapes = AppShapes) {
         // Make every bare Text() inherit the brand typeface, not the system font.
         CompositionLocalProvider(
             LocalTextStyle provides LocalTextStyle.current.copy(fontFamily = JakartaFamily),

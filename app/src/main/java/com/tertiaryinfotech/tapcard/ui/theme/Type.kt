@@ -18,20 +18,17 @@ private fun jakarta(weight: Int) = Font(
     variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
 )
 
-private fun grotesk(weight: Int) = Font(
-    R.font.space_grotesk,
-    weight = FontWeight(weight),
-    variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
-)
-
 /** Primary UI typeface — clean, modern, great at bold weights. */
 val JakartaFamily = FontFamily(
     jakarta(400), jakarta(500), jakarta(600), jakarta(700), jakarta(800),
 )
 
-/** Display typeface for brand moments / big headlines — distinctive & confident. */
+/**
+ * Display typeface for big headlines. Unified to Plus Jakarta Sans (heavy
+ * weights) so the whole app shares one typeface, headlines just carry more weight.
+ */
 val DisplayFontFamily = FontFamily(
-    grotesk(500), grotesk(600), grotesk(700),
+    jakarta(600), jakarta(700), jakarta(800),
 )
 
 /**
