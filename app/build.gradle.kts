@@ -90,8 +90,14 @@ dependencies {
     // ML Kit on-device text recognition (OCR) — no API key, no network.
     implementation("com.google.mlkit:text-recognition:16.0.1")
 
+    // ML Kit on-device barcode/QR scanning — reads vCard/MECARD/URL QR codes.
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
     // ZXing — QR code generation for the shareable vCard.
     implementation("com.google.zxing:core:3.5.3")
+
+    // Coil — async loading of remote profile photos / logos / banners (URLs).
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     // JSON persistence for saved cards.
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
