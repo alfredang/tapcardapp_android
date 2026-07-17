@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tertiaryinfotech.tapcard.model.DigitalCard
 import com.tertiaryinfotech.tapcard.util.EmailSignature
+import com.tertiaryinfotech.tapcard.util.launchSafely
 
 /**
  * Previews the card's email signature and lets the user copy it (as rich HTML +
@@ -65,7 +66,7 @@ fun EmailSignatureDialog(card: DigitalCard, onDismiss: () -> Unit) {
         },
         dismissButton = {
             TextButton(onClick = {
-                context.startActivity(
+                context.launchSafely(
                     Intent.createChooser(
                         Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"

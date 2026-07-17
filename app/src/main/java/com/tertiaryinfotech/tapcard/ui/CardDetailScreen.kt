@@ -2,9 +2,12 @@ package com.tertiaryinfotech.tapcard.ui
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,7 +34,6 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.AlertDialog
@@ -52,17 +55,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.tertiaryinfotech.tapcard.model.CardLink
 import com.tertiaryinfotech.tapcard.model.DigitalCard
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
 import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
 import com.tertiaryinfotech.tapcard.util.VCard
+import com.tertiaryinfotech.tapcard.util.launchSafely
 import com.tertiaryinfotech.tapcard.vm.CardViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,24 +119,12 @@ fun CardDetailScreen(vm: CardViewModel) {
             PrimaryButton("Share card", icon = Icons.Filled.Share) { vm.openShare(card) }
             Spacer(Modifier.height(20.dp))
 
+            QrPanel(card)
+            Spacer(Modifier.height(20.dp))
+
             SectionLabel("Contact")
             Spacer(Modifier.height(6.dp))
             ContactActions(card)
-
-            val activeLinks = card.links.filter { it.url.isNotBlank() }
-            if (activeLinks.isNotEmpty()) {
-                Spacer(Modifier.height(20.dp))
-                SectionLabel("Links")
-                Spacer(Modifier.height(6.dp))
-                LinksSection(activeLinks)
-            }
-
-            if (card.introVideo.isNotBlank() || card.gallery.any { it.isNotBlank() }) {
-                Spacer(Modifier.height(20.dp))
-                SectionLabel("Media")
-                Spacer(Modifier.height(6.dp))
-                MediaSection(card)
-            }
 
             if (card.bio.isNotBlank() || card.about.isNotBlank()) {
                 Spacer(Modifier.height(20.dp))
@@ -194,83 +185,107 @@ fun CardDetailScreen(vm: CardViewModel) {
     }
 }
 
+/** Always-visible QR panel — scans to the offline vCard so contacts can be saved instantly. */
+@Composable
+private fun QrPanel(card: DigitalCard) {
+    val qr = remember(card) { VCard.qrBitmap(card).asImageBitmap() }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(Radius.lg))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(Radius.lg))
+            .padding(vertical = 22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(Radius.md))
+                .background(Color.White)
+                .padding(14.dp),
+        ) {
+            Image(
+                bitmap = qr,
+                contentDescription = "QR code for ${card.displayName}",
+                modifier = Modifier.size(200.dp),
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Scan to save my contact",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 @Composable
 private fun ContactActions(card: DigitalCard) {
     val context = LocalContext.current
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
         if (card.phone.isNotBlank()) {
-            ActionRow("Call", Icons.Filled.Call, subtitle = card.phone) {
-                context.startActivity(
+            ContactCircle("Call", Icons.Filled.Call) {
+                context.launchSafely(
                     Intent(Intent.ACTION_DIAL, Uri.parse("tel:${card.phone.filter { it.isDigit() || it == '+' }}")),
+                    "No phone app available",
                 )
             }
-            ActionRow("WhatsApp", Icons.AutoMirrored.Filled.Chat, subtitle = card.phone) {
+            ContactCircle("WhatsApp", Icons.AutoMirrored.Filled.Chat) {
                 val num = card.phone.filter { it.isDigit() }
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$num")))
+                context.launchSafely(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$num")),
+                    "WhatsApp isn't installed",
+                )
             }
         }
         if (card.email.isNotBlank()) {
-            ActionRow("Email", Icons.Filled.Email, subtitle = card.email) {
-                context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${card.email}")))
+            ContactCircle("Email", Icons.Filled.Email) {
+                context.launchSafely(
+                    Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:${card.email}")),
+                    "No email app available",
+                )
             }
         }
         if (card.website.isNotBlank()) {
-            ActionRow("Website", Icons.Filled.Language, subtitle = card.website) {
+            ContactCircle("Website", Icons.Filled.Language) {
                 val url = if (card.website.startsWith("http")) card.website else "https://${card.website}"
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                context.launchSafely(
+                    Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+                    "No browser available",
+                )
             }
         }
-        ActionRow("Save to contacts", Icons.Filled.PersonAdd) {
+        ContactCircle("Save", Icons.Filled.PersonAdd) {
             VCard.addToContacts(context, card)
         }
     }
 }
 
+/** A circular icon button with a label — the polished "contact actions" pattern. */
 @Composable
-private fun LinksSection(links: List<CardLink>) {
-    val context = LocalContext.current
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        links.forEach { link ->
-            val title = link.label.ifBlank { link.kind.lowercase().replaceFirstChar { it.uppercase() } }
-            ActionRow(title, linkIcon(link.kind)) {
-                val u = if (link.url.startsWith("http")) link.url else "https://${link.url}"
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
-            }
+private fun ContactCircle(label: String, icon: ImageVector, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.tappable(onClick),
+    ) {
+        Box(
+            Modifier
+                .size(58.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(23.dp))
         }
-    }
-}
-
-@Composable
-private fun MediaSection(card: DigitalCard) {
-    val context = LocalContext.current
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        if (card.introVideo.isNotBlank()) {
-            ActionRow("Watch intro video", Icons.Filled.PlayCircle) {
-                val u = if (card.introVideo.startsWith("http")) card.introVideo else "https://${card.introVideo}"
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
-            }
-        }
-        val imgs = card.gallery.filter { it.isNotBlank() }
-        if (imgs.isNotEmpty()) {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                imgs.forEach { url ->
-                    AsyncImage(
-                        model = url,
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .size(140.dp)
-                            .clip(RoundedCornerShape(Radius.md))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                    )
-                }
-            }
-        }
+        Spacer(Modifier.height(7.dp))
+        Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
@@ -302,14 +317,15 @@ private fun SocialSection(card: DigitalCard) {
                 Modifier
                     .clip(RoundedCornerShape(Radius.sm))
                     .background(MaterialTheme.colorScheme.surface)
+                    .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), RoundedCornerShape(Radius.sm))
                     .tappable {
                         val u = if (url.startsWith("http")) url else "https://$url"
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)))
+                        context.launchSafely(Intent(Intent.ACTION_VIEW, Uri.parse(u)), "No browser available")
                     }
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Filled.Link, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(16.dp))
+                Icon(Icons.Filled.Link, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
                 Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
             }
@@ -327,14 +343,14 @@ private fun PublishedDialog(url: String, onDismiss: () -> Unit) {
         confirmButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 TextButton(onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                    context.launchSafely(Intent(Intent.ACTION_VIEW, Uri.parse(url)), "No browser available")
                 }) { Text("Open") }
                 TextButton(onClick = {
                     val share = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, url)
                     }
-                    context.startActivity(Intent.createChooser(share, "Share card link"))
+                    context.launchSafely(Intent.createChooser(share, "Share card link"))
                 }) { Text("Share") }
             }
         },

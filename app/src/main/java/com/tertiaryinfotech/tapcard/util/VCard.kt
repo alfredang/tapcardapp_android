@@ -51,7 +51,12 @@ object VCard {
             EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
             EncodeHintType.MARGIN to 1,
         )
-        val matrix = QRCodeWriter().encode(build(card), BarcodeFormat.QR_CODE, size, size, hints)
+        // Encoding can throw (e.g. an unusually long card overflowing QR capacity).
+        // If it does, degrade to a blank white square instead of crashing the screen.
+        val matrix = runCatching {
+            QRCodeWriter().encode(build(card), BarcodeFormat.QR_CODE, size, size, hints)
+        }.getOrNull() ?: return blankBitmap(size)
+
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         for (x in 0 until size) {
             for (y in 0 until size) {
@@ -61,6 +66,10 @@ object VCard {
         if (branded) drawBrandMark(bmp, size)
         return bmp
     }
+
+    /** Plain white square, used as a safe fallback when QR encoding fails. */
+    private fun blankBitmap(size: Int): Bitmap =
+        Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).apply { eraseColor(Color.WHITE) }
 
     /** Draws a small rounded Tapcard "card" badge in the centre of the QR. */
     private fun drawBrandMark(bmp: Bitmap, size: Int) {
@@ -103,9 +112,11 @@ object VCard {
             putExtra(Intent.EXTRA_TEXT, "Scan to save my contact. Powered by Tapcard.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(Intent.createChooser(intent, "Share card").apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        })
+        context.launchSafely(
+            Intent.createChooser(intent, "Share card").apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
     }
 
     /** Opens the system "add contact" sheet pre-filled from the card. */
@@ -120,7 +131,7 @@ object VCard {
             putExtra(android.provider.ContactsContract.Intents.Insert.POSTAL, card.address)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        context.startActivity(intent)
+        context.launchSafely(intent, "No contacts app available")
     }
 
     private fun normalizeUrl(url: String): String =

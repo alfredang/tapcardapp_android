@@ -99,7 +99,7 @@ object VirtualBackground {
             putExtra(Intent.EXTRA_SUBJECT, "${card.displayName} — virtual background")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        context.startActivity(
+        context.launchSafely(
             Intent.createChooser(intent, "Save or share background").apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             },

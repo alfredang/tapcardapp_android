@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Sms
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +55,7 @@ import com.tertiaryinfotech.tapcard.net.ApiConfig
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
 import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
 import com.tertiaryinfotech.tapcard.util.VCard
+import com.tertiaryinfotech.tapcard.util.launchSafely
 
 /** Public shareable URL for a card once it has been published (has a slug). */
 private fun DigitalCard.publicUrl(): String? =
@@ -149,7 +151,15 @@ fun ShareSheet(card: DigitalCard, onDismiss: () -> Unit) {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, "$link\n\nMy digital business card, powered by Tapcard.")
                     }
-                    context.startActivity(Intent.createChooser(share, "Share card link"))
+                    context.launchSafely(Intent.createChooser(share, "Share card link"))
+                }
+                Spacer(Modifier.height(10.dp))
+                OutlinedActionButton("Send via SMS", Icons.Filled.Sms) {
+                    val sms = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")).apply {
+                        putExtra("sms_body", "$link\n\nMy digital business card, powered by Tapcard.")
+                    }
+                    runCatching { context.startActivity(sms) }
+                        .onFailure { Toast.makeText(context, "No messaging app found", Toast.LENGTH_SHORT).show() }
                 }
                 Spacer(Modifier.height(10.dp))
             }
