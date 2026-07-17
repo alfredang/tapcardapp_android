@@ -1,9 +1,11 @@
 package com.tertiaryinfotech.tapcard.net
 
 import com.tertiaryinfotech.tapcard.model.AnalyticsSummary
+import com.tertiaryinfotech.tapcard.model.Appointment
 import com.tertiaryinfotech.tapcard.model.Contact
 import com.tertiaryinfotech.tapcard.model.DigitalCard
 import com.tertiaryinfotech.tapcard.model.Lead
+import com.tertiaryinfotech.tapcard.model.Task
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -14,12 +16,14 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import com.tertiaryinfotech.tapcard.model.CardLink
 import java.net.HttpURLConnection
 import java.net.URL
 
-/** Signed-in identity returned by login/register. */
+/** Signed-in identity returned by login/register/OTP verify. */
 data class AuthResult(val token: String, val name: String?, val email: String?)
+
+/** Result of requesting an email OTP — whether the email is a brand-new account. */
+data class OtpRequestResult(val isNewAccount: Boolean)
 
 /** What the app gets back after publishing a card via the onboard endpoint. */
 data class PublishResult(
@@ -94,6 +98,39 @@ object TapcardApi {
         AuthResult(res.token ?: throw Exception("No token returned"), res.user?.name, res.user?.email)
     }
 
+    // ─── Passwordless email OTP ─────────────────────────────────────────────
+
+    /** Requests a 6-digit code by email. Returns whether this email is new. */
+    suspend fun requestOtp(email: String): Result<OtpRequestResult> = runCatching {
+        val payload = buildJsonObject { put("email", email.trim()) }.toString()
+        val (code, text) = request("POST", "/api/mobile/otp/request", body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        OtpRequestResult(json.decodeFromString<OtpRequestResponse>(text).isNewAccount)
+    }
+
+    /** Verifies the emailed code; creates the account if new. Returns a token. */
+    suspend fun verifyOtp(email: String, code: String, name: String?): Result<AuthResult> = runCatching {
+        val payload = buildJsonObject {
+            put("email", email.trim())
+            put("code", code.trim())
+            if (!name.isNullOrBlank()) put("name", name.trim())
+        }.toString()
+        val (status, text) = request("POST", "/api/mobile/otp/verify", body = payload)
+        if (status !in 200..299) throw Exception(errorFrom(text, status))
+        val res = json.decodeFromString<AuthResponse>(text)
+        AuthResult(res.token ?: throw Exception("No token returned"), res.user?.name, res.user?.email)
+    }
+
+    // ─── Public card lookup (scanned QR / link) ─────────────────────────────
+
+    /** Fetches a published card by its public slug — used after scanning a QR. */
+    suspend fun fetchPublicCard(slug: String): Result<DigitalCard> = runCatching {
+        val (code, text) = request("GET", "/api/c/$slug")
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<CardResponse>(text).card?.toDigitalCard()
+            ?: throw Exception("Card not found")
+    }
+
     // ─── Card sync ──────────────────────────────────────────────────────────
 
     suspend fun fetchCards(token: String): Result<List<DigitalCard>> = runCatching {
@@ -161,6 +198,102 @@ object TapcardApi {
         if (code !in 200..299) throw Exception(errorFrom(text, code))
     }
 
+    // ─── Planner: tasks ─────────────────────────────────────────────────────────
+
+    suspend fun fetchTasks(token: String): Result<List<Task>> = runCatching {
+        val (code, text) = request("GET", "/api/mobile/tasks", token = token)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<TasksResponse>(text).tasks
+    }
+
+    suspend fun createTask(token: String, title: String, type: String, dueAt: String?): Result<Task> = runCatching {
+        val payload = buildJsonObject {
+            put("title", title.trim())
+            put("type", type)
+            if (!dueAt.isNullOrBlank()) put("dueAt", dueAt)
+        }.toString()
+        val (code, text) = request("POST", "/api/mobile/tasks", token = token, body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<TaskResponse>(text).task ?: throw Exception("Malformed response")
+    }
+
+    suspend fun setTaskStatus(token: String, id: String, status: String): Result<Task> = runCatching {
+        val payload = buildJsonObject { put("status", status) }.toString()
+        val (code, text) = request("PATCH", "/api/mobile/tasks/$id", token = token, body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<TaskResponse>(text).task ?: throw Exception("Malformed response")
+    }
+
+    suspend fun updateTask(token: String, id: String, title: String, type: String, dueAt: String?): Result<Task> = runCatching {
+        val payload = buildJsonObject {
+            put("title", title.trim())
+            put("type", type)
+            put("dueAt", dueAt)
+        }.toString()
+        val (code, text) = request("PATCH", "/api/mobile/tasks/$id", token = token, body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<TaskResponse>(text).task ?: throw Exception("Malformed response")
+    }
+
+    suspend fun deleteTask(token: String, id: String): Result<Unit> = runCatching {
+        val (code, text) = request("DELETE", "/api/mobile/tasks/$id", token = token)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+    }
+
+    // ─── Planner: appointments ──────────────────────────────────────────────────
+
+    suspend fun fetchAppointments(token: String): Result<List<Appointment>> = runCatching {
+        val (code, text) = request("GET", "/api/mobile/appointments", token = token)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<AppointmentsResponse>(text).appointments
+    }
+
+    suspend fun createAppointment(
+        token: String,
+        name: String,
+        email: String?,
+        startAt: String,
+        endAt: String,
+        notes: String?,
+    ): Result<Appointment> = runCatching {
+        val payload = buildJsonObject {
+            put("name", name.trim())
+            if (!email.isNullOrBlank()) put("email", email.trim())
+            put("startAt", startAt)
+            put("endAt", endAt)
+            if (!notes.isNullOrBlank()) put("notes", notes.trim())
+        }.toString()
+        val (code, text) = request("POST", "/api/mobile/appointments", token = token, body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<AppointmentResponse>(text).appointment ?: throw Exception("Malformed response")
+    }
+
+    suspend fun updateAppointment(
+        token: String,
+        id: String,
+        name: String,
+        email: String?,
+        startAt: String,
+        endAt: String,
+        notes: String?,
+    ): Result<Appointment> = runCatching {
+        val payload = buildJsonObject {
+            put("name", name.trim())
+            put("email", email?.trim() ?: "")
+            put("startAt", startAt)
+            put("endAt", endAt)
+            put("notes", notes?.trim() ?: "")
+        }.toString()
+        val (code, text) = request("PATCH", "/api/mobile/appointments/$id", token = token, body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<AppointmentResponse>(text).appointment ?: throw Exception("Malformed response")
+    }
+
+    suspend fun deleteAppointment(token: String, id: String): Result<Unit> = runCatching {
+        val (code, text) = request("DELETE", "/api/mobile/appointments/$id", token = token)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+    }
+
     // ─── Analytics summary ──────────────────────────────────────────────────────
 
     suspend fun fetchAnalytics(token: String): Result<AnalyticsSummary> = runCatching {
@@ -193,12 +326,25 @@ object TapcardApi {
 
     // ─── Unauthenticated publish (onboard) ────────────────────────────────────
 
-    suspend fun publish(card: DigitalCard): Result<PublishResult> = runCatching {
-        val (code, text) = request("POST", "/api/mobile/onboard", body = card.toOnboardJson())
+    suspend fun publish(token: String?, card: DigitalCard): Result<PublishResult> = runCatching {
+        val (code, text) = request("POST", "/api/mobile/onboard", token = token, body = card.toOnboardJson())
         if (code !in 200..299) throw Exception(errorFrom(text, code))
         val res = json.decodeFromString<OnboardResponse>(text)
         val url = res.card?.url ?: throw Exception("The server didn't return a card link.")
         PublishResult(url, res.card.slug.orEmpty(), res.isNewAccount, res.password)
+    }
+
+    // ─── Account deletion ─────────────────────────────────────────────────────
+
+    /**
+     * Permanently deletes the signed-in account. Sends the login [token] so the
+     * backend can verify ownership from the token itself (email is included only
+     * as a fallback for the legacy shared-key path).
+     */
+    suspend fun deleteAccount(token: String, email: String): Result<Unit> = runCatching {
+        val payload = buildJsonObject { put("email", email.trim()) }.toString()
+        val (code, text) = request("POST", "/api/mobile/delete-account", token = token, body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
     }
 
     // ─── DTOs ─────────────────────────────────────────────────────────────────
@@ -208,6 +354,9 @@ object TapcardApi {
 
     @Serializable
     private data class AuthResponse(val token: String? = null, val user: AuthUser? = null)
+
+    @Serializable
+    private data class OtpRequestResponse(val ok: Boolean = false, val isNewAccount: Boolean = false)
 
     @Serializable
     private data class ErrorResponse(val error: String? = null)
@@ -242,18 +391,8 @@ object TapcardApi {
         val profilePhoto: String? = null,
         val companyLogo: String? = null,
         val coverBanner: String? = null,
-        val introVideo: String? = null,
-        val gallery: List<String>? = null,
-        val links: List<ServerLink>? = null,
         val theme: String? = null,
         val accentColor: String? = null,
-    )
-
-    @Serializable
-    private data class ServerLink(
-        val label: String = "",
-        val url: String = "",
-        val kind: String = "LINK",
     )
 
     @Serializable
@@ -298,6 +437,18 @@ object TapcardApi {
     private data class LeadsResponse(val leads: List<ServerLead> = emptyList())
 
     @Serializable
+    private data class TasksResponse(val tasks: List<Task> = emptyList())
+
+    @Serializable
+    private data class TaskResponse(val task: Task? = null)
+
+    @Serializable
+    private data class AppointmentsResponse(val appointments: List<Appointment> = emptyList())
+
+    @Serializable
+    private data class AppointmentResponse(val appointment: Appointment? = null)
+
+    @Serializable
     private data class OnboardResponse(
         val ok: Boolean = false,
         val isNewAccount: Boolean = false,
@@ -336,9 +487,6 @@ object TapcardApi {
         profilePhoto = profilePhoto.orEmpty(),
         companyLogo = companyLogo.orEmpty(),
         coverBanner = coverBanner.orEmpty(),
-        introVideo = introVideo.orEmpty(),
-        gallery = gallery?.filter { it.isNotBlank() } ?: emptyList(),
-        links = links?.map { CardLink(it.label, it.url, it.kind) } ?: emptyList(),
         theme = theme?.ifBlank { "MODERN" } ?: "MODERN",
         accentColor = parseHexColor(accentColor),
         slug = slug.orEmpty(),
@@ -367,22 +515,11 @@ object TapcardApi {
         if (twitter.isNotBlank()) put("twitter", twitter.trim())
         if (telegram.isNotBlank()) put("telegram", telegram.trim())
         if (youtube.isNotBlank()) put("youtube", youtube.trim())
-        if (profilePhoto.isNotBlank()) put("profilePhoto", profilePhoto.trim())
-        if (companyLogo.isNotBlank()) put("companyLogo", companyLogo.trim())
-        if (coverBanner.isNotBlank()) put("coverBanner", coverBanner.trim())
-        if (introVideo.isNotBlank()) put("introVideo", introVideo.trim())
-        putJsonArray("gallery") {
-            gallery.filter { it.isNotBlank() }.forEach { add(it.trim()) }
-        }
-        putJsonArray("links") {
-            links.filter { it.url.isNotBlank() }.forEach { link ->
-                addJsonObject {
-                    put("label", link.label.trim())
-                    put("url", link.url.trim())
-                    put("kind", link.kind)
-                }
-            }
-        }
+        // Always send media fields (even when blank) so REMOVING an image actually
+        // clears it server-side — a partial update skips omitted fields.
+        put("profilePhoto", profilePhoto.trim())
+        put("companyLogo", companyLogo.trim())
+        put("coverBanner", coverBanner.trim())
         put("theme", theme.ifBlank { "MODERN" })
         put("accentColor", toHexColor(accentColor))
     }.toString()

@@ -15,7 +15,9 @@ object ApiConfig {
     // Physical device instead? Use "http://<your-PC-LAN-IP>:3000" (e.g. 192.168.3.29)
     // and make sure that IP is in res/xml/network_security_config.xml.
     // Production: "https://tapcard.tertiaryinfotech.com".
-    const val BASE_URL = "http://10.0.2.2:3000"
+    // Physical device on same Wi-Fi as the PC running the backend. For the
+    // Android emulator instead, use "http://10.0.2.2:3000".
+    const val BASE_URL = "http://192.168.3.43:3000"
 
     /**
      * Public base for shareable card links (NFC tap, QR, etc.). Unlike BASE_URL
