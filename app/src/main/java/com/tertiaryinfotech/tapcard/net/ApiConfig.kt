@@ -11,13 +11,11 @@ package com.tertiaryinfotech.tapcard.net
  * For PRODUCTION, use: "https://tapcard.tertiaryinfotech.com"
  */
 object ApiConfig {
-    // Android emulator → the host PC's localhost (this is the emulator's alias).
-    // Physical device instead? Use "http://<your-PC-LAN-IP>:3000" (e.g. 192.168.3.29)
-    // and make sure that IP is in res/xml/network_security_config.xml.
-    // Production: "https://tapcard.tertiaryinfotech.com".
-    // Physical device on same Wi-Fi as the PC running the backend. For the
-    // Android emulator instead, use "http://10.0.2.2:3000".
-    const val BASE_URL = "http://192.168.3.43:3000"
+    // PRODUCTION backend. For LOCAL testing instead, point this at the machine
+    // running the web backend, e.g. "http://10.0.2.2:3000" (emulator) or
+    // "http://<your-PC-LAN-IP>:3000" (physical device on the same Wi-Fi — that
+    // IP must also be listed in res/xml/network_security_config.xml).
+    const val BASE_URL = "https://tapcard.tertiaryinfotech.com"
 
     /**
      * Public base for shareable card links (NFC tap, QR, etc.). Unlike BASE_URL
