@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -101,7 +102,7 @@ fun HomeScreen(vm: CardViewModel) {
             },
         ) { padding ->
             if (vm.cards.isEmpty()) {
-                EmptyHome(padding, onScan = vm::startScan, onManual = vm::startManualEntry)
+                EmptyHome(padding, onScan = vm::scanForMyCard, onManual = vm::startManualEntry)
             } else {
                 CardHero(vm, padding)
             }
@@ -152,7 +153,7 @@ private fun CardHero(vm: CardViewModel, padding: PaddingValues) {
         }
 
         if (cards.size > 1) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(14.dp))
             PageDots(count = cards.size, selected = pagerState.currentPage)
         }
 
@@ -160,22 +161,15 @@ private fun CardHero(vm: CardViewModel, padding: PaddingValues) {
 
         val current = cards[pagerState.currentPage.coerceIn(0, cards.lastIndex)]
         Column(Modifier.padding(horizontal = Spacing.page)) {
-            PrimaryButton("Share card", icon = Icons.Filled.Share) { vm.openShare(current) }
-            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SecondaryPill("View", Icons.Filled.Visibility, Modifier.weight(1f)) { vm.openCard(current) }
-                SecondaryPill("Edit", Icons.Filled.Edit, Modifier.weight(1f)) {
+                QuickAction("Share", Icons.Filled.Share, ShareBlue, Modifier.weight(1f)) { vm.openShare(current) }
+                QuickAction("View", Icons.Filled.Visibility, ViewViolet, Modifier.weight(1f)) { vm.openCard(current) }
+                QuickAction("Edit", Icons.Filled.Edit, EditAmber, Modifier.weight(1f)) {
                     vm.draft = current
                     vm.editDraft()
                 }
             }
 
-            Spacer(Modifier.height(28.dp))
-            SectionLabel("Add another card")
-            Spacer(Modifier.height(8.dp))
-            ActionRow("Scan a card", Icons.Filled.PhotoCamera, subtitle = "Capture a paper card with your camera", onClick = vm::startScan)
-            Spacer(Modifier.height(10.dp))
-            ActionRow("Add manually", Icons.Filled.Add, subtitle = "Type in the details yourself", onClick = vm::startManualEntry)
             Spacer(Modifier.height(12.dp))
         }
     }
@@ -204,25 +198,38 @@ private fun PageDots(count: Int, selected: Int) {
     }
 }
 
+private val ShareBlue = Color(0xFF2563EB)
+private val ViewViolet = Color(0xFF7C3AED)
+private val EditAmber = Color(0xFFF59E0B)
+
 @Composable
-private fun SecondaryPill(
+private fun QuickAction(
     text: String,
     icon: ImageVector,
+    tint: Color,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Row(
+    Column(
         modifier
-            .height(50.dp)
             .clip(RoundedCornerShape(Radius.md))
             .background(MaterialTheme.colorScheme.surface)
-            .tappable(onClick),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), RoundedCornerShape(Radius.md))
+            .tappable(onClick)
+            .padding(vertical = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, contentDescription = null, tint = BrandBlue, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.size(7.dp))
-        Text(text, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+        Box(
+            Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(13.dp))
+                .background(tint.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(21.dp))
+        }
+        Spacer(Modifier.height(9.dp))
+        Text(text, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     }
 }
 
@@ -280,7 +287,7 @@ private fun EmptyHome(
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(32.dp))
-        PrimaryButton("Scan a card", icon = Icons.Filled.PhotoCamera, onClick = onScan)
+        PrimaryButton("Scan contact information", icon = Icons.Filled.PhotoCamera, onClick = onScan)
         Spacer(Modifier.height(12.dp))
         OutlinedActionButton("Add manually", Icons.Filled.Add, onClick = onManual)
     }

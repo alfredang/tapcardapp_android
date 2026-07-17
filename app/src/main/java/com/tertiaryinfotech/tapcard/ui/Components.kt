@@ -16,12 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlueDeep
+import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 object Spacing {
@@ -82,16 +78,6 @@ fun AppBackground(modifier: Modifier = Modifier) {
     }
 }
 
-// ─── Link kind → icon ─────────────────────────────────────────────────────────
-/** Maps a CardLink kind to its display icon. */
-fun linkIcon(kind: String): ImageVector = when (kind.uppercase()) {
-    "PAYMENT" -> Icons.Filled.Payments
-    "BOOKING" -> Icons.Filled.CalendarMonth
-    "PRODUCT" -> Icons.Filled.ShoppingBag
-    "FILE" -> Icons.AutoMirrored.Filled.InsertDriveFile
-    else -> Icons.Filled.Link
-}
-
 // ─── Section label ──────────────────────────────────────────────────────────────
 /** Quiet uppercase group heading used across the app's scrolling screens. */
 @Composable
@@ -104,6 +90,26 @@ fun SectionLabel(text: String, modifier: Modifier = Modifier) {
         letterSpacing = 1.sp,
         modifier = modifier.padding(start = 4.dp, top = 8.dp, bottom = 2.dp),
     )
+}
+
+// ─── Large screen title ─────────────────────────────────────────────────────────
+/** Big bold large-title header (+ optional subtitle) for the top of a screen. */
+@Composable
+fun ScreenTitle(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+    Column(modifier.padding(top = 4.dp, bottom = 8.dp)) {
+        Text(
+            title,
+            fontFamily = DisplayFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = 32.sp,
+            letterSpacing = (-0.5).sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (subtitle != null) {
+            Spacer(Modifier.height(2.dp))
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        }
+    }
 }
 
 // ─── Primary CTA ────────────────────────────────────────────────────────────────
@@ -188,6 +194,7 @@ fun ActionRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.md))
             .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.7f), RoundedCornerShape(Radius.md))
             .tappable(onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -266,19 +273,3 @@ fun SignedOutState(
     }
 }
 
-// ─── Soft card container ─────────────────────────────────────────────────────────
-/** A rounded light surface card used to group content. */
-@Composable
-fun SoftCard(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Box(
-        modifier
-            .fillMaxWidth()
-            .heightIn(min = 0.dp)
-            .shadow(6.dp, RoundedCornerShape(Radius.md), spotColor = Color.Black.copy(alpha = 0.10f))
-            .clip(RoundedCornerShape(Radius.md))
-            .background(MaterialTheme.colorScheme.surface),
-    ) { content() }
-}

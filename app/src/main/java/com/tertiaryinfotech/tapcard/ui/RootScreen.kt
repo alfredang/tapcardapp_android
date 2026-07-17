@@ -11,10 +11,11 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CreditCard
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,8 +36,10 @@ import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlueTint
 import com.tertiaryinfotech.tapcard.vm.CardViewModel
 
+// Screens that show the persistent bottom bar. Scan is full-screen (its own
+// controls) and Insights now lives under Settings, so neither shows the bar.
 private val TabRoots = setOf(
-    AppScreen.HOME, AppScreen.CONTACTS, AppScreen.ANALYTICS, AppScreen.SETTINGS,
+    AppScreen.HOME, AppScreen.PLANNER, AppScreen.CONTACTS, AppScreen.SETTINGS,
 )
 
 /**
@@ -81,8 +84,10 @@ fun RootScreen(vm: CardViewModel) {
                 AppScreen.HOME -> HomeScreen(vm)
                 AppScreen.SCAN -> ScanScreen(vm)
                 AppScreen.REVIEW -> ReviewScreen(vm)
+                AppScreen.CONTACT_REVIEW -> ContactReviewScreen(vm)
                 AppScreen.CARD -> CardDetailScreen(vm)
                 AppScreen.CONTACTS -> ContactsScreen(vm)
+                AppScreen.PLANNER -> PlannerScreen(vm)
                 AppScreen.ANALYTICS -> AnalyticsScreen(vm)
                 AppScreen.SETTINGS -> SettingsScreen(vm)
             }
@@ -110,8 +115,9 @@ private fun TapBottomBar(vm: CardViewModel) {
         tonalElevation = 0.dp,
     ) {
         TabItem(vm, AppScreen.HOME, "My Card", Icons.Filled.CreditCard) { vm.goHome() }
+        TabItem(vm, AppScreen.SCAN, "Scan", Icons.Filled.QrCodeScanner) { vm.startScan() }
+        TabItem(vm, AppScreen.PLANNER, "Planner", Icons.Filled.EventNote) { vm.openPlanner() }
         TabItem(vm, AppScreen.CONTACTS, "Contacts", Icons.Filled.Groups) { vm.openContacts() }
-        TabItem(vm, AppScreen.ANALYTICS, "Insights", Icons.Filled.BarChart) { vm.openAnalytics() }
         TabItem(vm, AppScreen.SETTINGS, "Settings", Icons.Filled.Person) { vm.openSettings() }
     }
 }
