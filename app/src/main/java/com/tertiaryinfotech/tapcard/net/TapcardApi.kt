@@ -121,6 +121,24 @@ object TapcardApi {
         AuthResult(res.token ?: throw Exception("No token returned"), res.user?.name, res.user?.email)
     }
 
+    // ─── Google sign-in ─────────────────────────────────────────────────────
+
+    /**
+     * Exchanges a Google ID token (from the system account picker) for a Tapcard
+     * bearer token. The backend verifies the token with Google, then finds or
+     * creates the account and returns the same shape as login/OTP verify.
+     */
+    suspend fun googleSignIn(idToken: String, name: String?): Result<AuthResult> = runCatching {
+        val payload = buildJsonObject {
+            put("idToken", idToken)
+            if (!name.isNullOrBlank()) put("name", name.trim())
+        }.toString()
+        val (code, text) = request("POST", "/api/mobile/oauth/google", body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        val res = json.decodeFromString<AuthResponse>(text)
+        AuthResult(res.token ?: throw Exception("No token returned"), res.user?.name, res.user?.email)
+    }
+
     // ─── Public card lookup (scanned QR / link) ─────────────────────────────
 
     /** Fetches a published card by its public slug — used after scanning a QR. */

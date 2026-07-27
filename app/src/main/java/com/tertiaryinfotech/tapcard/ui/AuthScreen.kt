@@ -1,6 +1,7 @@
 package com.tertiaryinfotech.tapcard.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,7 +44,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -50,11 +55,16 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tertiaryinfotech.tapcard.R
+import com.tertiaryinfotech.tapcard.net.ApiConfig
+import com.tertiaryinfotech.tapcard.net.GoogleSignInOutcome
+import com.tertiaryinfotech.tapcard.net.requestGoogleIdToken
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlueDeep
 import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
 import com.tertiaryinfotech.tapcard.vm.AuthStep
 import com.tertiaryinfotech.tapcard.vm.CardViewModel
+import kotlinx.coroutines.launch
 
 private const val OtpLength = 6
 
@@ -130,6 +140,11 @@ private fun SignUpForm(vm: CardViewModel) {
         keyboard?.hide()
         vm.signUpWithPassword(name, email, password)
     }
+
+    Spacer(Modifier.height(20.dp))
+    OrDivider()
+    Spacer(Modifier.height(16.dp))
+    GoogleAuthButton(vm)
 
     Spacer(Modifier.height(16.dp))
     SwitchRow("Already have an account? ", "Log in", vm::beginLogin)
@@ -214,6 +229,15 @@ private fun LoginForm(vm: CardViewModel) {
                 Text("Didn't get it? Resend code", color = BrandBlue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+
+    // Social sign-on sits under the form, mirroring the website — but not on the
+    // code-entry step, where the user is mid-way through an email login.
+    if (!(useCode && vm.authStep == AuthStep.CODE)) {
+        Spacer(Modifier.height(20.dp))
+        OrDivider()
+        Spacer(Modifier.height(16.dp))
+        GoogleAuthButton(vm)
     }
 
     Spacer(Modifier.height(16.dp))
@@ -377,6 +401,70 @@ private fun AuthError(vm: CardViewModel) {
     vm.authError?.let { err ->
         Spacer(Modifier.height(12.dp))
         Text(err, color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun OrDivider() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outline))
+        Text(
+            "  or  ",
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Box(Modifier.weight(1f).height(1.dp).background(MaterialTheme.colorScheme.outline))
+    }
+}
+
+/**
+ * "Continue with Google" — runs the system account picker (Credential Manager),
+ * then hands the resulting ID token to the backend via [CardViewModel.signInWithGoogle].
+ * The picker is Activity-scoped system UI, so it's driven from here (LocalContext)
+ * rather than the ViewModel.
+ */
+@Composable
+private fun GoogleAuthButton(vm: CardViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var pickerBusy by remember { mutableStateOf(false) }
+    val loading = pickerBusy || vm.isAuthBusy
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .tappable {
+                if (loading) return@tappable
+                pickerBusy = true
+                vm.authError = null
+                scope.launch {
+                    when (val outcome = requestGoogleIdToken(context, ApiConfig.GOOGLE_SERVER_CLIENT_ID)) {
+                        is GoogleSignInOutcome.Success -> vm.signInWithGoogle(outcome.idToken)
+                        GoogleSignInOutcome.Cancelled -> Unit
+                        is GoogleSignInOutcome.Failure -> vm.authError = outcome.message
+                    }
+                    pickerBusy = false
+                }
+            },
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (loading) {
+            CircularProgressIndicator(strokeWidth = 2.dp, color = BrandBlue, modifier = Modifier.size(20.dp))
+        } else {
+            Image(painterResource(R.drawable.ic_google), contentDescription = null, modifier = Modifier.size(20.dp))
+            Spacer(Modifier.size(10.dp))
+            Text(
+                "Continue with Google",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
     }
 }
 

@@ -22,4 +22,20 @@ object ApiConfig {
      * this must be a real internet address, since recipients open it off-network.
      */
     const val PUBLIC_WEB_URL = "https://tapcard.tertiaryinfotech.com"
+
+    /**
+     * Google sign-in server client ID — the **Web** OAuth 2.0 client ID from the
+     * Google Cloud project (the SAME one the website's Google login uses,
+     * i.e. the backend's GOOGLE_CLIENT_ID). The Credential Manager mints an ID
+     * token whose `aud` is this value, and the backend at
+     * /api/mobile/oauth/google only accepts tokens minted for it.
+     *
+     * NOTE: this is NOT the Android client ID. Google still requires a separate
+     * Android OAuth client (registered with the app's package name + signing
+     * SHA-1) to exist in the same project, but that ID is never referenced here.
+     *
+     * Until it's filled in, the Google button reports "not configured" instead of
+     * failing cryptically. Ends in ".apps.googleusercontent.com".
+     */
+    const val GOOGLE_SERVER_CLIENT_ID = "180688404947-6l2dk3osp5j0oac5ugp10uor5phnt9l6.apps.googleusercontent.com"
 }
