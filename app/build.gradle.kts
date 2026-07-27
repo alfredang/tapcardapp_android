@@ -102,5 +102,12 @@ dependencies {
     // JSON persistence for saved cards.
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
+    // Google sign-in via Credential Manager (modern replacement for the legacy
+    // GoogleSignIn SDK) — shows the system account picker and yields an ID token
+    // the backend verifies at POST /api/mobile/oauth/google.
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

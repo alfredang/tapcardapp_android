@@ -527,6 +527,27 @@ class CardViewModel(app: Application) : AndroidViewModel(app) {
         isAuthBusy = false
     }
 
+    // ---- Google sign-in ----
+
+    /**
+     * Completes sign-in with a Google ID token from the system account picker
+     * (see [com.tertiaryinfotech.tapcard.net.requestGoogleIdToken]). Same flow as
+     * OTP/password: a new Google account is created server-side, an existing one
+     * signs straight in.
+     */
+    fun signInWithGoogle(idToken: String) {
+        isAuthBusy = true
+        authError = null
+        viewModelScope.launch {
+            TapcardApi.googleSignIn(idToken, null)
+                .onSuccess { onAuthSuccess(it) }
+                .onFailure {
+                    authError = it.message ?: "Google sign-in failed. Try again."
+                    isAuthBusy = false
+                }
+        }
+    }
+
     // ---- Password auth ----
 
     /** Create a new account with name + email + password. */
