@@ -11,17 +11,25 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
 private val LightColors = lightColorScheme(
-    primary = BrandBlue,
+    primary = BrandViolet,
     onPrimary = androidx.compose.ui.graphics.Color.White,
-    primaryContainer = BrandBlueSoft,
-    onPrimaryContainer = BrandBlueDeep,
-    secondary = BrandBlueDeep,
+    primaryContainer = BrandVioletSoft,
+    onPrimaryContainer = BrandVioletDeep,
+    secondary = BrandCoral,
+    onSecondary = androidx.compose.ui.graphics.Color.White,
+    secondaryContainer = BrandCoralSoft,
+    onSecondaryContainer = Color(0xFF7A2417),
+    tertiary = BrandTeal,
+    onTertiary = androidx.compose.ui.graphics.Color.White,
+    tertiaryContainer = BrandTealSoft,
+    onTertiaryContainer = Color(0xFF075147),
     background = LightBackground,
     onBackground = LightOnSurface,
     surface = LightSurface,
