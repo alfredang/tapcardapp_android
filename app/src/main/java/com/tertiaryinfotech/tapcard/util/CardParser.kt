@@ -26,7 +26,7 @@ object CardParser {
         "ltd", "limited", "llc", "inc", "incorporated", "corp", "corporation",
         "pte", "co.", "company", "group", "technologies", "technology", "solutions",
         "services", "systems", "consulting", "enterprise", "holdings", "industries",
-        "academy", "studio", "labs", "global", "international",
+        "academy", "studio", "labs", "global", "international", "infotech", "institute", "agency",
     )
 
     fun parse(rawText: String): DigitalCard {
@@ -62,13 +62,30 @@ object CardParser {
         var company = ""
         val addressParts = mutableListOf<String>()
 
+        // A detected PERSON beats line-order heuristics: "Tertiary Infotech"
+        // looks like a name to the capitalization check, while
+        // "Dr. Alfred Ang, DACE, ACTA" fails it for being too long.
+        val honorific = Regex("""\b(?:Dr|Prof|Professor|Mr|Mrs|Ms|Ir|Ar)\.?\s+[A-Z][A-Za-z'-]+(?:\s+[A-Z][A-Za-z'-]+){1,3}""")
         for (line in leftovers) {
+            honorific.find(line)?.let { m ->
+                if (name.isBlank()) name = m.value
+            }
+        }
+
+        for (rawLine in leftovers) {
+            var line = rawLine
+            if (name.isNotBlank() && line.contains(name)) {
+                // Strip the person out; classify whatever remains.
+                line = line.replace(name, "").trim(' ', ',', '|')
+                if (line.isBlank()) continue
+            }
             val lower = line.lowercase()
             when {
                 title.isBlank() && titleKeywords.any { lower.contains(it) } &&
                     !companyKeywords.any { lower.contains(it) } -> title = line
                 company.isBlank() && companyKeywords.any { lower.contains(it) } -> company = line
                 name.isBlank() && looksLikeName(line) -> name = line
+                company.isBlank() && name.isNotBlank() && looksLikeName(line) -> company = line
                 else -> addressParts.add(line)
             }
         }
