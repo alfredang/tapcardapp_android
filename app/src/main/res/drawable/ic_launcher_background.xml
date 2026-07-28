@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Brand gradient: violet → coral, matching the website and iOS icon. -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="@color/ic_launcher_background" />
+    <gradient
+        android:angle="315"
+        android:startColor="#6A47F5"
+        android:endColor="#F86E59"
+        android:type="linear" />
 </shape>
