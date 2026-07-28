@@ -37,5 +37,5 @@ object ApiConfig {
      * Until it's filled in, the Google button reports "not configured" instead of
      * failing cryptically. Ends in ".apps.googleusercontent.com".
      */
-    const val GOOGLE_SERVER_CLIENT_ID = "180688404947-6l2dk3osp5j0oac5ugp10uor5phnt9l6.apps.googleusercontent.com"
+    const val GOOGLE_SERVER_CLIENT_ID = "180688404947-5t5hbp85nrtmie4ad1unmkn2fejuel63.apps.googleusercontent.com"
 }
