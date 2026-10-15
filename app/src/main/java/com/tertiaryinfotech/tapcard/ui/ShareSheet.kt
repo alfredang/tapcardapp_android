@@ -51,15 +51,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.tertiaryinfotech.tapcard.model.DigitalCard
-import com.tertiaryinfotech.tapcard.net.ApiConfig
+import com.tertiaryinfotech.tapcard.model.UserSettings
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
 import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
+import com.tertiaryinfotech.tapcard.util.CardLinks
+import com.tertiaryinfotech.tapcard.util.QrMode
 import com.tertiaryinfotech.tapcard.util.VCard
 import com.tertiaryinfotech.tapcard.util.launchSafely
-
-/** Public shareable URL for a card once it has been published (has a slug). */
-private fun DigitalCard.publicUrl(): String? =
-    slug.takeIf { it.isNotBlank() }?.let { "${ApiConfig.PUBLIC_WEB_URL}/c/$it" }
 
 /**
  * Blinq-style share surface: a big QR (works offline via vCard), the public link
@@ -68,12 +66,19 @@ private fun DigitalCard.publicUrl(): String? =
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ShareSheet(card: DigitalCard, onDismiss: () -> Unit) {
+fun ShareSheet(card: DigitalCard, settings: UserSettings, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val qr = remember(card) { VCard.qrBitmap(card).asImageBitmap() }
-    val link = card.publicUrl()
+    val countryCode = settings.countryCode
+    val modes = remember(card, countryCode) { CardLinks.availableModes(card, countryCode) }
+    var mode by remember(card, settings) {
+        mutableStateOf(CardLinks.resolveMode(card, settings.defaultQrMode, countryCode))
+    }
+    // The LinkedIn tab shares the profile itself; every other tab shares the card.
+    val link = if (mode == QrMode.LINKEDIN) CardLinks.linkedInUrl(card) else CardLinks.publicUrl(card)
+    val shareText = if (mode == QrMode.LINKEDIN) "Let's connect on LinkedIn: $link"
+    else "$link\n\nMy digital business card, powered by Tapcard."
 
     var reveal by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { reveal = true }
@@ -110,7 +115,9 @@ fun ShareSheet(card: DigitalCard, onDismiss: () -> Unit) {
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(16.dp))
+            QrModePicker(modes, mode, { mode = it }, Modifier.fillMaxWidth())
+            if (modes.size > 1) Spacer(Modifier.height(16.dp))
 
             // QR panel (springs in on open)
             Box(
@@ -121,23 +128,12 @@ fun ShareSheet(card: DigitalCard, onDismiss: () -> Unit) {
                         alpha = qrAlpha
                     }
                     .shadow(16.dp, RoundedCornerShape(Radius.lg), spotColor = BrandBlue.copy(alpha = 0.4f))
-                    .clip(RoundedCornerShape(Radius.lg))
-                    .background(Color.White)
-                    .padding(20.dp),
+                    .clip(RoundedCornerShape(Radius.lg)),
             ) {
-                Image(
-                    bitmap = qr,
-                    contentDescription = "QR code for ${card.displayName}",
-                    modifier = Modifier.size(230.dp),
-                )
+                CardQrImage(card, mode, countryCode, size = 230.dp)
             }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                "Scan to save my contact",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-            )
+            Spacer(Modifier.height(12.dp))
+            QrCaption(card, mode, countryCode)
             Spacer(Modifier.height(20.dp))
 
             // Public link (only once published)
@@ -146,17 +142,20 @@ fun ShareSheet(card: DigitalCard, onDismiss: () -> Unit) {
                     Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
                 }
                 Spacer(Modifier.height(12.dp))
-                PrimaryButton("Share link", icon = Icons.Filled.Share) {
+                PrimaryButton(
+                    if (mode == QrMode.LINKEDIN) "Share LinkedIn profile" else "Share link",
+                    icon = Icons.Filled.Share,
+                ) {
                     val share = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, "$link\n\nMy digital business card, powered by Tapcard.")
+                        putExtra(Intent.EXTRA_TEXT, shareText)
                     }
-                    context.launchSafely(Intent.createChooser(share, "Share card link"))
+                    context.launchSafely(Intent.createChooser(share, "Share link"))
                 }
                 Spacer(Modifier.height(10.dp))
                 OutlinedActionButton("Send via SMS", Icons.Filled.Sms) {
                     val sms = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")).apply {
-                        putExtra("sms_body", "$link\n\nMy digital business card, powered by Tapcard.")
+                        putExtra("sms_body", shareText)
                     }
                     runCatching { context.startActivity(sms) }
                         .onFailure { Toast.makeText(context, "No messaging app found", Toast.LENGTH_SHORT).show() }
@@ -165,7 +164,12 @@ fun ShareSheet(card: DigitalCard, onDismiss: () -> Unit) {
             }
 
             OutlinedActionButton("Share QR image", Icons.Filled.QrCode2) {
-                VCard.shareQr(context, card)
+                VCard.shareQr(
+                    context,
+                    card,
+                    payload = CardLinks.qrPayload(card, mode, countryCode),
+                    caption = CardLinks.caption(mode) + ".",
+                )
             }
             Spacer(Modifier.height(10.dp))
             OutlinedActionButton("Save to contacts", Icons.Filled.PersonAdd) {

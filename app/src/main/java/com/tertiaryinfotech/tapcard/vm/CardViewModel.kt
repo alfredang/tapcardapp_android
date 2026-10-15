@@ -14,12 +14,15 @@ import com.tertiaryinfotech.tapcard.model.Contact
 import com.tertiaryinfotech.tapcard.model.DigitalCard
 import com.tertiaryinfotech.tapcard.model.Lead
 import com.tertiaryinfotech.tapcard.model.Task
+import com.tertiaryinfotech.tapcard.model.UserSettings
 import com.tertiaryinfotech.tapcard.net.AuthResult
 import com.tertiaryinfotech.tapcard.net.AuthStore
 import com.tertiaryinfotech.tapcard.net.TapcardApi
 import com.tertiaryinfotech.tapcard.ocr.CardScanner
 import com.tertiaryinfotech.tapcard.util.CardParser
 import com.tertiaryinfotech.tapcard.util.CardStore
+import com.tertiaryinfotech.tapcard.util.QrMode
+import com.tertiaryinfotech.tapcard.util.SettingsStore
 import com.tertiaryinfotech.tapcard.widget.WidgetStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -46,6 +49,14 @@ class CardViewModel(app: Application) : AndroidViewModel(app) {
 
     private val store = CardStore(app)
     private val auth = AuthStore(app)
+    private val settingsStore = SettingsStore(app)
+
+    /**
+     * Account preferences (country code, default QR). Cached locally and synced
+     * with the web's /settings through `/api/mobile/settings`.
+     */
+    var settings by mutableStateOf(settingsStore.load())
+        private set
 
     var screen by mutableStateOf(AppScreen.HOME)
         private set
@@ -158,6 +169,7 @@ class CardViewModel(app: Application) : AndroidViewModel(app) {
     /** Show the splash while the initial card fetch validates the session. */
     private fun enterAppWithSplash(token: String) {
         isBooting = true
+        refreshSettings()
         viewModelScope.launch {
             TapcardApi.fetchCards(token)
                 .onSuccess { updateCards(it) }
@@ -175,8 +187,68 @@ class CardViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun refreshFromServer() {
         val t = token ?: return
+        refreshSettings()
         viewModelScope.launch {
             TapcardApi.fetchCards(t).onSuccess { updateCards(it) }
+        }
+    }
+
+    // ---- Synced settings ----
+
+    /** Pulls the latest preferences — picks up changes made on the web. */
+    fun refreshSettings() {
+        val t = token ?: return
+        viewModelScope.launch {
+            TapcardApi.fetchSettings(t).onSuccess(::applySettings)
+        }
+    }
+
+    private fun applySettings(value: UserSettings) {
+        settings = value
+        settingsStore.save(value)
+    }
+
+    fun setCountryCode(code: String) =
+        updateSettings(settings.copy(countryCode = code)) { TapcardApi.updateSettings(it, countryCode = code) }
+
+    fun setDefaultQrMode(mode: QrMode) =
+        updateSettings(settings.copy(qrMode = mode.serverValue)) { TapcardApi.updateSettings(it, qrMode = mode.serverValue) }
+
+    /** Optimistic: applies locally at once, then syncs; rolls back if the server refuses. */
+    private fun updateSettings(next: UserSettings, push: suspend (String) -> Result<UserSettings>) {
+        val previous = settings
+        applySettings(next)
+        val t = token ?: return
+        viewModelScope.launch {
+            push(t)
+                .onSuccess(::applySettings)
+                .onFailure {
+                    applySettings(previous)
+                    activeAlert = AppAlert("Couldn't save setting", it.message ?: "Please check your connection.")
+                }
+        }
+    }
+
+    /**
+     * Changes a card's theme + accent straight from Settings, without opening the
+     * editor. Signed in, the change syncs to the web card immediately.
+     */
+    fun updateCardDesign(card: DigitalCard, theme: String, accentColor: Long) {
+        val updated = card.copy(theme = theme, accentColor = accentColor)
+        updateCards(cards.map { if (it.id == card.id) updated else it })
+        if (draft.id == card.id) draft = updated
+        val t = token
+        if (t == null || updated.createdAtEpoch == 0L) {
+            if (t == null) store.save(updated)
+            return
+        }
+        viewModelScope.launch {
+            TapcardApi.updateCard(t, updated)
+                .onFailure {
+                    updateCards(cards.map { c -> if (c.id == card.id) card else c })
+                    if (draft.id == card.id) draft = card
+                    activeAlert = AppAlert("Couldn't update design", it.message ?: "Please check your connection.")
+                }
         }
     }
 

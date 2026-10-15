@@ -3,6 +3,24 @@
 All notable changes to Tapcard (Android) are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com).
 
+## [1.4] — 2026-10-15 · versionCode 5
+
+### Added
+- QR switcher on the card and share sheet: **WhatsApp** (opens a chat with you,
+  routed through your card page), **LinkedIn**, **Card** link or offline **Contact**.
+- Settings → **Your card**: card design picker (all 20 designs in a grid with a live
+  preview), default QR code, and default country code — all synced with the web's
+  /settings via `/api/mobile/settings`.
+- Accent colour "Auto" swatch — follows the card design (sent to the web as "").
+- Unit tests for phone-number internationalisation.
+
+### Fixed
+- WhatsApp QR / button no longer fails with "phone number shared via url is
+  invalid": local numbers now get the account's country code (`96983731` →
+  `6596983731`), mirroring the web's `internationalDigits`.
+- vCards carry international numbers (`+65…`) so contacts saved abroad still dial.
+- Saving a card no longer overrides the web design's accent with a default blue.
+
 ## [1.3] — 2026-07-28 · versionCode 4
 
 ### Added

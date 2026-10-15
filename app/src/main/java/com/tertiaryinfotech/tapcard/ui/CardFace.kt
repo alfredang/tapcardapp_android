@@ -31,10 +31,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.tertiaryinfotech.tapcard.model.ACCENT_AUTO
 import com.tertiaryinfotech.tapcard.model.DigitalCard
-import com.tertiaryinfotech.tapcard.util.CardImages
 import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
 import com.tertiaryinfotech.tapcard.ui.theme.cardTheme
+import com.tertiaryinfotech.tapcard.util.CardImages
 
 // Body text colours — the lower half is always white, so text stays dark
 // regardless of the banner theme.
@@ -54,6 +55,8 @@ private val AvatarSize = 88.dp
 fun CardFace(card: DigitalCard, modifier: Modifier = Modifier) {
     val theme = cardTheme(card.theme)
     val onBanner = theme.bannerText
+    // Matches the web's resolveAccent: Auto follows the design, a picked colour wins.
+    val accent = if (card.accentColor == ACCENT_AUTO) theme.accent else Color(card.accentColor)
 
     Box(
         modifier
@@ -163,9 +166,11 @@ fun CardFace(card: DigitalCard, modifier: Modifier = Modifier) {
                     Spacer(Modifier.height(1.dp))
                     Text(card.company, color = CardInkMuted, fontSize = 14.sp)
                 }
+                Spacer(Modifier.height(10.dp))
+                Box(Modifier.size(width = 36.dp, height = 3.dp).clip(CircleShape).background(accent))
                 if (card.tagline.isNotBlank()) {
                     Spacer(Modifier.height(8.dp))
-                    Text(card.tagline, color = CardInkMuted.copy(alpha = 0.85f), fontSize = 13.sp)
+                    Text(card.tagline, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }

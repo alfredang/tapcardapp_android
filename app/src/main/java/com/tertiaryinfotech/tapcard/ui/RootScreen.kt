@@ -95,7 +95,7 @@ fun RootScreen(vm: CardViewModel) {
     }
 
     vm.shareCard?.let { card ->
-        ShareSheet(card = card, onDismiss = vm::dismissShare)
+        ShareSheet(card = card, settings = vm.settings, onDismiss = vm::dismissShare)
     }
 
     vm.activeAlert?.let { alert ->

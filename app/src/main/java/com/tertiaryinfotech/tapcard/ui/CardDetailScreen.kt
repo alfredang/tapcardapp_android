@@ -64,6 +64,9 @@ import androidx.compose.ui.unit.sp
 import com.tertiaryinfotech.tapcard.model.DigitalCard
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
 import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
+import com.tertiaryinfotech.tapcard.util.CardLinks
+import com.tertiaryinfotech.tapcard.util.PhoneNumber
+import com.tertiaryinfotech.tapcard.util.QrMode
 import com.tertiaryinfotech.tapcard.util.VCard
 import com.tertiaryinfotech.tapcard.util.launchSafely
 import com.tertiaryinfotech.tapcard.vm.CardViewModel
@@ -116,15 +119,16 @@ fun CardDetailScreen(vm: CardViewModel) {
             CardFace(card)
             Spacer(Modifier.height(18.dp))
 
-            PrimaryButton("Share card", icon = Icons.Filled.Share) { vm.openShare(card) }
-            Spacer(Modifier.height(20.dp))
+            // QR first: showing your phone to be scanned is the main in-person flow.
+            QrPanel(card, vm.settings.defaultQrMode, vm.settings.countryCode)
+            Spacer(Modifier.height(14.dp))
 
-            QrPanel(card)
+            PrimaryButton("Share card", icon = Icons.Filled.Share) { vm.openShare(card) }
             Spacer(Modifier.height(20.dp))
 
             SectionLabel("Contact")
             Spacer(Modifier.height(6.dp))
-            ContactActions(card)
+            ContactActions(card, vm.settings.countryCode)
 
             if (card.bio.isNotBlank() || card.about.isNotBlank()) {
                 Spacer(Modifier.height(20.dp))
@@ -185,43 +189,36 @@ fun CardDetailScreen(vm: CardViewModel) {
     }
 }
 
-/** Always-visible QR panel — scans to the offline vCard so contacts can be saved instantly. */
+/**
+ * Always-visible QR panel. Opens on the account's default mode (Settings →
+ * Default QR code); the pill switcher flips between WhatsApp, LinkedIn, the
+ * card link and the offline vCard for this one share.
+ */
 @Composable
-private fun QrPanel(card: DigitalCard) {
-    val qr = remember(card) { VCard.qrBitmap(card).asImageBitmap() }
+private fun QrPanel(card: DigitalCard, defaultMode: QrMode, countryCode: String) {
+    val modes = remember(card, countryCode) { CardLinks.availableModes(card, countryCode) }
+    var mode by remember(card, defaultMode, countryCode) {
+        mutableStateOf(CardLinks.resolveMode(card, defaultMode, countryCode))
+    }
     Column(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(Radius.lg))
             .background(MaterialTheme.colorScheme.surface)
             .border(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f), RoundedCornerShape(Radius.lg))
-            .padding(vertical = 22.dp),
+            .padding(horizontal = 16.dp, vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            Modifier
-                .clip(RoundedCornerShape(Radius.md))
-                .background(Color.White)
-                .padding(14.dp),
-        ) {
-            Image(
-                bitmap = qr,
-                contentDescription = "QR code for ${card.displayName}",
-                modifier = Modifier.size(200.dp),
-            )
-        }
+        QrModePicker(modes, mode, { mode = it }, Modifier.fillMaxWidth())
+        if (modes.size > 1) Spacer(Modifier.height(16.dp))
+        CardQrImage(card, mode, countryCode, size = 200.dp)
         Spacer(Modifier.height(12.dp))
-        Text(
-            "Scan to save my contact",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        QrCaption(card, mode, countryCode)
     }
 }
 
 @Composable
-private fun ContactActions(card: DigitalCard) {
+private fun ContactActions(card: DigitalCard, countryCode: String) {
     val context = LocalContext.current
     Row(
         Modifier
@@ -232,16 +229,14 @@ private fun ContactActions(card: DigitalCard) {
         if (card.phone.isNotBlank()) {
             ContactCircle("Call", Icons.Filled.Call) {
                 context.launchSafely(
-                    Intent(Intent.ACTION_DIAL, Uri.parse("tel:${card.phone.filter { it.isDigit() || it == '+' }}")),
+                    Intent(Intent.ACTION_DIAL, Uri.parse("tel:${PhoneNumber.international(card.phone, countryCode)}")),
                     "No phone app available",
                 )
             }
+        }
+        CardLinks.whatsappChat(card, countryCode)?.let { chat ->
             ContactCircle("WhatsApp", Icons.AutoMirrored.Filled.Chat) {
-                val num = card.phone.filter { it.isDigit() }
-                context.launchSafely(
-                    Intent(Intent.ACTION_VIEW, Uri.parse("https://wa.me/$num")),
-                    "WhatsApp isn't installed",
-                )
+                context.launchSafely(Intent(Intent.ACTION_VIEW, Uri.parse(chat)), "WhatsApp isn't installed")
             }
         }
         if (card.email.isNotBlank()) {

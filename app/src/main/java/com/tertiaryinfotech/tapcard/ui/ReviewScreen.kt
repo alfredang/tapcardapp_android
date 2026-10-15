@@ -1,5 +1,10 @@
 package com.tertiaryinfotech.tapcard.ui
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -8,6 +13,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,6 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -39,6 +47,8 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -50,41 +60,36 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import android.content.Context
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.PickVisualMediaRequest
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material.icons.filled.PhotoLibrary
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
-import kotlinx.coroutines.launch
-import java.io.File
+import com.tertiaryinfotech.tapcard.model.ACCENT_AUTO
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
+import com.tertiaryinfotech.tapcard.ui.theme.CardTheme
 import com.tertiaryinfotech.tapcard.ui.theme.CardThemes
 import com.tertiaryinfotech.tapcard.ui.theme.DisplayFontFamily
+import com.tertiaryinfotech.tapcard.ui.theme.cardTheme
 import com.tertiaryinfotech.tapcard.util.CardImages
 import com.tertiaryinfotech.tapcard.vm.CardViewModel
+import java.io.File
+import kotlinx.coroutines.launch
 
 /** Preset accent colours offered in the editor — a full, varied spectrum. */
 private val AccentSwatches = listOf(
@@ -191,8 +196,8 @@ fun ReviewScreen(vm: CardViewModel) {
                 PickerLabel("Card theme", "The overall style of your card")
                 ThemePicker(selected = card.theme) { vm.draft = card.copy(theme = it) }
                 Spacer(Modifier.height(4.dp))
-                PickerLabel("Accent colour", "Used for highlights and buttons")
-                ColorPicker(selected = card.accentColor) { vm.draft = card.copy(accentColor = it) }
+                PickerLabel("Accent colour", "Auto matches the design, or pick your own")
+                ColorPicker(selected = card.accentColor, themeKey = card.theme) { vm.draft = card.copy(accentColor = it) }
             }
 
             Spacer(Modifier.height(14.dp))
@@ -232,52 +237,94 @@ private fun AiWriteButton(field: String, busy: Boolean, enabled: Boolean, onClic
 }
 
 @Composable
-private fun ThemePicker(selected: String, onSelect: (String) -> Unit) {
+internal fun ThemePicker(selected: String, onSelect: (String) -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        CardThemes.forEach { theme ->
-            val isSelected = theme.key == selected
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(
-                    Modifier
-                        .size(width = 60.dp, height = 44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Brush.linearGradient(listOf(theme.bannerStart, theme.bannerEnd)))
-                        .border(
-                            width = if (isSelected) 3.dp else 1.dp,
-                            color = if (isSelected) MaterialTheme.colorScheme.onSurface
-                            else MaterialTheme.colorScheme.outline,
-                            shape = RoundedCornerShape(12.dp),
-                        )
-                        .clickable { onSelect(theme.key) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (isSelected) {
-                        Icon(Icons.Filled.Check, contentDescription = null, tint = theme.bannerText, modifier = Modifier.size(18.dp))
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    theme.label,
-                    fontSize = 11.sp,
-                    color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                )
-            }
-        }
+        CardThemes.forEach { theme -> ThemeSwatch(theme, theme.key == selected) { onSelect(theme.key) } }
+    }
+}
+
+/** Every design at once, wrapped into rows — used where there's room (Settings → Card design). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ThemeGrid(selected: String, onSelect: (String) -> Unit) {
+    FlowRow(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        maxItemsInEachRow = 4,
+    ) {
+        CardThemes.forEach { theme -> ThemeSwatch(theme, theme.key == selected) { onSelect(theme.key) } }
     }
 }
 
 @Composable
-private fun ColorPicker(selected: Long, onSelect: (Long) -> Unit) {
+private fun ThemeSwatch(theme: CardTheme, isSelected: Boolean, onClick: () -> Unit) {
+    // The whole tile (swatch + name) is the touch target, not just the swatch.
+    Column(
+        Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(width = 60.dp, height = 44.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Brush.linearGradient(listOf(theme.bannerStart, theme.bannerEnd)))
+                .border(
+                    width = if (isSelected) 3.dp else 1.dp,
+                    color = if (isSelected) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.outline,
+                    shape = RoundedCornerShape(12.dp),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (isSelected) {
+                Icon(Icons.Filled.Check, contentDescription = null, tint = theme.bannerText, modifier = Modifier.size(18.dp))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            theme.label,
+            fontSize = 11.sp,
+            color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+        )
+    }
+}
+
+@Composable
+internal fun ColorPicker(selected: Long, themeKey: String, onSelect: (Long) -> Unit) {
     Row(
         Modifier.horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // "Auto" — follow the card design's own accent (the default).
+        val theme = cardTheme(themeKey)
+        val autoSelected = selected == ACCENT_AUTO
+        Box(
+            Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(Brush.linearGradient(listOf(theme.bannerStart, theme.bannerEnd)))
+                .border(
+                    width = if (autoSelected) 3.dp else 1.dp,
+                    color = if (autoSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.outline,
+                    shape = CircleShape,
+                )
+                .clickable { onSelect(ACCENT_AUTO) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                if (autoSelected) Icons.Filled.Check else Icons.Filled.AutoAwesome,
+                contentDescription = "Match design",
+                tint = theme.bannerText,
+                modifier = Modifier.size(if (autoSelected) 20.dp else 16.dp),
+            )
+        }
         AccentSwatches.forEach { argb ->
             val isSelected = argb == selected
             Box(

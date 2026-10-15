@@ -3,9 +3,11 @@ package com.tertiaryinfotech.tapcard.net
 import com.tertiaryinfotech.tapcard.model.AnalyticsSummary
 import com.tertiaryinfotech.tapcard.model.Appointment
 import com.tertiaryinfotech.tapcard.model.Contact
+import com.tertiaryinfotech.tapcard.model.ACCENT_AUTO
 import com.tertiaryinfotech.tapcard.model.DigitalCard
 import com.tertiaryinfotech.tapcard.model.Lead
 import com.tertiaryinfotech.tapcard.model.Task
+import com.tertiaryinfotech.tapcard.model.UserSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -174,6 +176,29 @@ object TapcardApi {
     suspend fun deleteCard(token: String, id: String): Result<Unit> = runCatching {
         val (code, text) = request("DELETE", "/api/mobile/cards/$id", token = token)
         if (code !in 200..299) throw Exception(errorFrom(text, code))
+    }
+
+    // ─── Account settings (synced with the web's /settings) ─────────────────
+
+    suspend fun fetchSettings(token: String): Result<UserSettings> = runCatching {
+        val (code, text) = request("GET", "/api/mobile/settings", token = token)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<SettingsResponse>(text).settings ?: throw Exception("Malformed response")
+    }
+
+    /** PATCHes only the fields given; the server returns the full saved settings. */
+    suspend fun updateSettings(
+        token: String,
+        countryCode: String? = null,
+        qrMode: String? = null,
+    ): Result<UserSettings> = runCatching {
+        val payload = buildJsonObject {
+            if (countryCode != null) put("countryCode", countryCode)
+            if (qrMode != null) put("qrMode", qrMode)
+        }.toString()
+        val (code, text) = request("PATCH", "/api/mobile/settings", token = token, body = payload)
+        if (code !in 200..299) throw Exception(errorFrom(text, code))
+        json.decodeFromString<SettingsResponse>(text).settings ?: throw Exception("Malformed response")
     }
 
     // ─── Contacts sync ────────────────────────────────────────────────────────
@@ -414,6 +439,9 @@ object TapcardApi {
     )
 
     @Serializable
+    private data class SettingsResponse(val settings: UserSettings? = null)
+
+    @Serializable
     private data class CardsResponse(val cards: List<ServerCard> = emptyList())
 
     @Serializable
@@ -539,7 +567,7 @@ object TapcardApi {
         put("companyLogo", companyLogo.trim())
         put("coverBanner", coverBanner.trim())
         put("theme", theme.ifBlank { "MODERN" })
-        put("accentColor", toHexColor(accentColor))
+        put("accentColor", if (accentColor == ACCENT_AUTO) "" else toHexColor(accentColor))
     }.toString()
 
     private fun DigitalCard.toOnboardJson(): String = buildJsonObject {
@@ -590,9 +618,11 @@ object TapcardApi {
 
     private fun toHexColor(argb: Long): String = "#%06X".format(argb and 0xFFFFFF)
 
+    /** Empty or one of the web's legacy defaults means "match the design" (web: resolveAccent). */
     private fun parseHexColor(hex: String?): Long {
-        val h = hex?.trim()?.removePrefix("#") ?: return 0xFF7C5CFF
-        return runCatching { 0xFF000000 or (h.toLong(16) and 0xFFFFFF) }.getOrDefault(0xFF7C5CFF)
+        val h = hex?.trim()?.removePrefix("#")?.lowercase().orEmpty()
+        if (h.isEmpty() || h == "7c5cff" || h == "6a47f5") return ACCENT_AUTO
+        return runCatching { 0xFF000000 or (h.toLong(16) and 0xFFFFFF) }.getOrDefault(ACCENT_AUTO)
     }
 
     private fun normalizeUrl(raw: String): String? {

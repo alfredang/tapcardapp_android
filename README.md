@@ -42,13 +42,16 @@ business-card platform, built with Jetpack Compose and Material 3.
 - 📷 **On-device card scanning** — Google ML Kit text recognition, no network and no API keys
 - 🧠 **Automatic field detection** — name, job title, company, phone, email, website, address
 - ✏️ **Review & edit** — fix anything before you save; nothing is locked in
-- 🔳 **Shareable QR code** — anyone can scan it to save the contact (iPhone, Android, Google, Outlook)
+- 🔳 **Smart QR code** — switch between **WhatsApp** (scanning opens a chat with you, your card underneath), **LinkedIn**, your **card link**, or an offline **vCard**; pick the default in Settings
+- 🌏 **Country code** — local numbers like `9698 3731` get your dialling code, so WhatsApp and calls connect instead of failing with "invalid number"
+- 🎨 **20 card designs** — choose a style and accent colour straight from Settings with a live preview; "Auto" matches the design
 - 👤 **One-tap contact export** — add the card straight to your address book as a vCard
 - ⚡ **Quick actions** — call, WhatsApp, email, or open the website right from the card
 - 🗂️ **My Cards** — every card you create, stored privately on your device
 - ⌨️ **Add by hand** — no card? Type the details in and still get a QR
 - 🌗 **Material 3 design** with automatic light & dark mode
-- 🔒 **100% private** — no account, no cloud, no ads, no analytics
+- ☁️ **Synced with the web** — sign in and your cards, contacts and Settings (country code, default QR, design) stay in sync with [tapcard.tertiaryinfotech.com](https://tapcard.tertiaryinfotech.com)
+- 🔒 **On-device scanning** — card photos are read on the phone; works offline without an account
 
 ## Tech Stack
 

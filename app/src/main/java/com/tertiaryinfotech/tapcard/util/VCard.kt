@@ -25,7 +25,7 @@ import java.io.FileOutputStream
 object VCard {
 
     /** RFC 6350 vCard 3.0 text for a card. */
-    fun build(card: DigitalCard): String = buildString {
+    fun build(card: DigitalCard, countryCode: String = PhoneNumber.DEFAULT_COUNTRY_CODE): String = buildString {
         appendLine("BEGIN:VCARD")
         appendLine("VERSION:3.0")
         if (card.name.isNotBlank()) {
@@ -34,7 +34,11 @@ object VCard {
         }
         if (card.company.isNotBlank()) appendLine("ORG:${card.company}")
         if (card.title.isNotBlank()) appendLine("TITLE:${card.title}")
-        if (card.phone.isNotBlank()) appendLine("TEL;TYPE=CELL:${card.phone}")
+        // International form so a contact saved by someone abroad still dials.
+        if (card.phone.isNotBlank()) appendLine("TEL;TYPE=CELL:${PhoneNumber.international(card.phone, countryCode)}")
+        if (card.whatsapp.isNotBlank() && card.whatsapp != card.phone) {
+            appendLine("TEL;TYPE=CELL,WHATSAPP:${PhoneNumber.international(card.whatsapp, countryCode)}")
+        }
         if (card.email.isNotBlank()) appendLine("EMAIL;TYPE=INTERNET:${card.email}")
         if (card.website.isNotBlank()) appendLine("URL:${normalizeUrl(card.website)}")
         if (card.address.isNotBlank()) appendLine("ADR;TYPE=WORK:;;${card.address};;;;")
@@ -46,7 +50,11 @@ object VCard {
      * brand mark in the centre. Uses high error correction so the mark doesn't
      * break scannability.
      */
-    fun qrBitmap(card: DigitalCard, size: Int = 720, branded: Boolean = true): Bitmap {
+    fun qrBitmap(card: DigitalCard, size: Int = 720, branded: Boolean = true): Bitmap =
+        qrBitmap(build(card), size, branded)
+
+    /** QR bitmap for any payload — a card link, a LinkedIn URL or vCard text. */
+    fun qrBitmap(text: String, size: Int = 720, branded: Boolean = true): Bitmap {
         val hints = mapOf(
             EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.H,
             EncodeHintType.MARGIN to 1,
@@ -54,7 +62,7 @@ object VCard {
         // Encoding can throw (e.g. an unusually long card overflowing QR capacity).
         // If it does, degrade to a blank white square instead of crashing the screen.
         val matrix = runCatching {
-            QRCodeWriter().encode(build(card), BarcodeFormat.QR_CODE, size, size, hints)
+            QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, size, size, hints)
         }.getOrNull() ?: return blankBitmap(size)
 
         val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -99,17 +107,22 @@ object VCard {
         )
     }
 
-    /** Writes the QR PNG to cache/share and returns a shareable content:// Uri. */
-    fun shareQr(context: Context, card: DigitalCard) {
+    /** Writes the QR PNG to cache/share and opens the share sheet with it. */
+    fun shareQr(
+        context: Context,
+        card: DigitalCard,
+        payload: String = build(card),
+        caption: String = "Scan to save my contact.",
+    ) {
         val dir = File(context.cacheDir, "share").apply { mkdirs() }
         val file = File(dir, "tapcard-qr-${card.id}.png")
-        FileOutputStream(file).use { qrBitmap(card).compress(Bitmap.CompressFormat.PNG, 100, it) }
+        FileOutputStream(file).use { qrBitmap(payload).compress(Bitmap.CompressFormat.PNG, 100, it) }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_SUBJECT, "${card.displayName} — digital business card")
-            putExtra(Intent.EXTRA_TEXT, "Scan to save my contact. Powered by Tapcard.")
+            putExtra(Intent.EXTRA_TEXT, "$caption Powered by Tapcard.")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.launchSafely(

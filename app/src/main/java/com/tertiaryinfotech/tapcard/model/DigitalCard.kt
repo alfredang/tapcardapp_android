@@ -3,6 +3,9 @@ package com.tertiaryinfotech.tapcard.model
 import kotlinx.serialization.Serializable
 import java.util.UUID
 
+/** "Match the design" — the card uses its theme's accent. Sent to the server as "". */
+const val ACCENT_AUTO: Long = 0L
+
 /**
  * A digital business card. Fields mirror the web app's Card model so the two
  * stay in sync. Stored locally as JSON (see CardStore) and synced to the backend
@@ -45,8 +48,8 @@ data class DigitalCard(
 
     // Design
     val theme: String = "CORPORATE",
-    /** ARGB accent for the card face; defaults to the Corporate blue. */
-    val accentColor: Long = 0xFF2563EB,
+    /** ARGB accent chosen on purpose, or [ACCENT_AUTO] to follow the theme (web: empty accentColor). */
+    val accentColor: Long = ACCENT_AUTO,
 
     /** Public web-card slug once synced to the backend (empty for local-only cards). */
     val slug: String = "",

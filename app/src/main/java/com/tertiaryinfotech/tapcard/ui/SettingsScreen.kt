@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,6 +28,10 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.CreditCard
@@ -35,12 +42,15 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,7 +68,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import com.tertiaryinfotech.tapcard.model.DigitalCard
+import com.tertiaryinfotech.tapcard.BuildConfig
 import com.tertiaryinfotech.tapcard.net.ApiConfig
+import com.tertiaryinfotech.tapcard.ui.theme.cardTheme
+import com.tertiaryinfotech.tapcard.util.PhoneNumber
+import com.tertiaryinfotech.tapcard.util.QrMode
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlue
 import com.tertiaryinfotech.tapcard.ui.theme.BrandBlueDeep
 import com.tertiaryinfotech.tapcard.util.CardImages
@@ -80,6 +95,11 @@ private val ColorNeutral = Color(0xFF64748B)  // slate
 fun SettingsScreen(vm: CardViewModel) {
     val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
+    var showDesign by remember { mutableStateOf(false) }
+    var showCountry by remember { mutableStateOf(false) }
+    val myCard = vm.cards.firstOrNull()
+    // Pick up anything changed on the web since launch.
+    LaunchedEffect(Unit) { vm.refreshSettings() }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -93,6 +113,61 @@ fun SettingsScreen(vm: CardViewModel) {
         ) {
             item { ScreenTitle("Settings") }
             item { AccountCard(vm) { vm.cards.firstOrNull()?.let(vm::openCard) } }
+
+            // Mobile-first: the everyday card + sharing choices live here, and
+            // sync to the web's /settings when signed in.
+            item { SectionLabel("Your card") }
+            item {
+                SettingsGroup {
+                    SettingRow(
+                        title = "Card design",
+                        subtitle = myCard?.let { "${cardTheme(it.theme).label} · tap to change style & colour" }
+                            ?: "Create your card first",
+                        icon = Icons.Filled.Palette,
+                        tint = ColorPrivacy,
+                    ) { if (myCard != null) showDesign = true else vm.scanForMyCard() }
+                    RowDivider()
+                    Column(Modifier.padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            SettingIcon(Icons.Filled.QrCode2, ColorShare)
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Default QR code", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                                Text(
+                                    "What people get when they scan your code",
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        QrModePicker(
+                            modes = QrMode.defaults,
+                            selected = vm.settings.defaultQrMode,
+                            onSelect = vm::setDefaultQrMode,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    RowDivider()
+                    SettingRow(
+                        title = "Country code",
+                        subtitle = PhoneNumber.countryLabel(vm.settings.countryCode) +
+                            " · added to local numbers for WhatsApp",
+                        icon = Icons.Filled.Public,
+                        tint = ColorSync,
+                    ) { showCountry = true }
+                }
+            }
+            if (vm.isAuthenticated) {
+                item {
+                    Text(
+                        "Synced with your account — changes here also apply on tapcard.tertiaryinfotech.com.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
+                }
+            }
 
             item { SectionLabel("Sync") }
             item {
@@ -203,7 +278,7 @@ fun SettingsScreen(vm: CardViewModel) {
 
             item {
                 Text(
-                    "Tapcard · v1.0",
+                    "Tapcard · v${BuildConfig.VERSION_NAME}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
@@ -213,6 +288,25 @@ fun SettingsScreen(vm: CardViewModel) {
                 )
             }
         }
+    }
+
+    if (showDesign && myCard != null) {
+        CardDesignSheet(
+            card = myCard,
+            onApply = { theme, accent -> vm.updateCardDesign(myCard, theme, accent) },
+            onDismiss = { showDesign = false },
+        )
+    }
+
+    if (showCountry) {
+        CountryCodeDialog(
+            selected = vm.settings.countryCode,
+            onSelect = {
+                vm.setCountryCode(it)
+                showCountry = false
+            },
+            onDismiss = { showCountry = false },
+        )
     }
 
     if (confirmDelete) {
@@ -321,15 +415,7 @@ private fun SettingRow(
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(11.dp))
-                .background(accent.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(19.dp))
-        }
+        SettingIcon(icon, accent)
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = titleColor)
@@ -346,4 +432,109 @@ private fun SettingRow(
             )
         }
     }
+}
+
+@Composable
+private fun SettingIcon(icon: ImageVector, tint: Color) {
+    Box(
+        Modifier
+            .size(38.dp)
+            .clip(RoundedCornerShape(11.dp))
+            .background(tint.copy(alpha = 0.12f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(19.dp))
+    }
+}
+
+/**
+ * Pick a card style and accent with a live preview. Each tap applies (and, when
+ * signed in, syncs to the web card) immediately — no separate save step.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CardDesignSheet(card: DigitalCard, onApply: (String, Long) -> Unit, onDismiss: () -> Unit) {
+    var theme by remember(card.id) { mutableStateOf(card.theme) }
+    var accent by remember(card.id) { mutableStateOf(card.accentColor) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.background,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = Spacing.page)
+                .padding(bottom = 24.dp),
+        ) {
+            Text("Card design", fontWeight = FontWeight.Bold, fontSize = 22.sp)
+            Text(
+                "Pick a style — it updates your live card instantly.",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(16.dp))
+            CardFace(card.copy(theme = theme, accentColor = accent))
+            Spacer(Modifier.height(20.dp))
+            SectionLabel("Style")
+            Spacer(Modifier.height(8.dp))
+            ThemeGrid(selected = theme) {
+                theme = it
+                onApply(theme, accent)
+            }
+            Spacer(Modifier.height(18.dp))
+            SectionLabel("Accent colour")
+            Spacer(Modifier.height(8.dp))
+            ColorPicker(selected = accent, themeKey = theme) {
+                accent = it
+                onApply(theme, accent)
+            }
+            Spacer(Modifier.height(22.dp))
+            PrimaryButton("Done", onClick = onDismiss)
+        }
+    }
+}
+
+@Composable
+private fun CountryCodeDialog(selected: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Default country") },
+        text = {
+            LazyColumn(Modifier.height(360.dp)) {
+                item {
+                    Text(
+                        "Added to numbers typed without a country code, so WhatsApp and calls connect.",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+                PhoneNumber.countries.forEach { (code, name, flag) ->
+                    item(key = code) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .tappable { onSelect(code) }
+                                .padding(horizontal = 8.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(flag, fontSize = 20.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Text(name, Modifier.weight(1f), fontSize = 15.sp)
+                            Text("+$code", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (code == selected) {
+                                Spacer(Modifier.width(8.dp))
+                                Icon(Icons.Filled.Check, contentDescription = "Selected", tint = BrandBlue, modifier = Modifier.size(18.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }
